@@ -1,11 +1,11 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "claim-center",
-  "main": "worker/production.js",
+  "main": "worker/main.js",
   "compatibility_date": "2026-08-21",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    "directory": "./public",
+    "directory": "./site",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
