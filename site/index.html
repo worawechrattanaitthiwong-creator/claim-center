@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <title>Claim Center</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+  <div id="busy" class="busy" hidden><div class="spinner"></div><strong id="busyText">กำลังทำงาน…</strong></div>
+
+  <section id="loginScreen" class="login-shell">
+    <div class="login-visual">
+      <div class="logo-mark">✓</div>
+      <p class="eyebrow">CLAIM OPERATIONS PLATFORM</p>
+      <h1>Claim Center</h1>
+      <p>ระบบเคลมบน Cloudflare Workers + D1 ที่คง Logic จาก Claim CCD พร้อม Validation และ Master Article ในระบบเดียว</p>
+      <div class="proof-grid"><span>✓ D1 Database</span><span>✓ RunValidation E + O</span><span>✓ Master Article AJ</span><span>✓ Audit & Running No.</span></div>
+    </div>
+    <form id="loginForm" class="login-card">
+      <div class="login-card-head"><div class="logo-mark small">✓</div><div><span class="eyebrow">SECURE ACCESS</span><h2>เข้าสู่ระบบ</h2></div></div>
+      <label class="field"><span>Username</span><input id="loginUsername" autocomplete="username" required placeholder="2030164"></label>
+      <label class="field"><span>Password</span><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="••••••••••"></label>
+      <button class="btn primary wide" type="submit">เข้าสู่ระบบ</button>
+      <div class="theme-login"><span>Appearance</span><button type="button" class="theme-choice" data-theme-choice="light">☀ Light</button><button type="button" class="theme-choice" data-theme-choice="dark">☾ Dark</button></div>
+    </form>
+  </section>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside id="sidebar" class="sidebar">
+      <div class="brand"><div class="logo-mark small">✓</div><div><strong>CLAIM</strong><span>CENTER</span></div></div>
+      <nav class="nav">
+        <p>WORKSPACE</p>
+        <button data-page="dashboard" class="active"><i>⌂</i><span>ภาพรวมงานเคลม</span></button>
+        <button data-page="create"><i>＋</i><span>แจ้งเคลม</span></button>
+        <button data-page="claims"><i>≡</i><span>รายการเคลม</span><b id="navClaimCount">0</b></button>
+        <button data-page="validation"><i>✓</i><span>Validation</span></button>
+        <button data-page="references"><i>⌁</i><span>Reference</span></button>
+        <button data-page="performance"><i>↟</i><span>สถิติการทำงาน</span></button>
+        <p class="admin-only">ADMINISTRATION</p>
+        <button data-page="dropdowns" class="admin-only"><i>⌄</i><span>ตั้งค่า Dropdown</span></button>
+        <button data-page="masters" class="admin-only"><i>◇</i><span>Master Data</span></button>
+        <button data-page="history" class="admin-only"><i>⇧</i><span>นำเข้าข้อมูลเก่า</span></button>
+        <button data-page="users" class="admin-only"><i>◎</i><span>ผู้ใช้งาน</span></button>
+      </nav>
+      <div class="sidebar-footer"><div class="online"><i></i> SYSTEM ONLINE</div><div class="user-card"><div id="userAvatar" class="avatar">U</div><div><strong id="displayUser">-</strong><span id="displayRole">-</span></div><button id="logoutButton" title="ออกจากระบบ">↪</button></div></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button id="mobileMenu" class="icon-btn mobile-only">☰</button>
+        <div><span id="pageEyebrow" class="eyebrow">OPERATIONS</span><h2 id="pageTitle">ภาพรวมงานเคลม</h2></div>
+        <div class="top-actions"><span id="buildBadge" class="build-badge">checking build…</span><div class="theme-switch"><button data-theme-choice="light">☀</button><button data-theme-choice="dark">☾</button></div><button id="changePasswordButton" class="btn ghost compact">เปลี่ยนรหัส</button></div>
+      </header>
+
+      <div class="content">
+        <section id="page-dashboard" class="page active" data-title="ภาพรวมงานเคลม" data-eyebrow="OPERATIONS CONTROL CENTER">
+          <div class="hero"><div><span class="kicker">CLAIM OPERATIONS</span><h1>Operations Control Center</h1><p>1 Transport = 1 Case · สรุปสถานะ ยอดเคลม Format และรอบรถล่าสุดจาก D1</p></div><div class="hero-actions"><span id="healthPill" class="pill success">D1 Online</span><button id="dashboardRebuild" class="btn ghost admin-only">Rebuild Summary</button><button id="dashboardRefresh" class="btn primary">↻ Refresh</button></div></div>
+          <section class="panel filters"><div class="grid five"><label class="field"><span>ปี</span><select id="dashYear"></select></label><label class="field"><span>เดือน</span><select id="dashMonth"></select></label><label class="field"><span>WHO</span><select id="dashWho"><option value="all">ทั้งหมด</option><option>DC</option><option>TP</option><option>QC</option></select></label><label class="field"><span>Status</span><select id="dashStatus"><option value="all">ทั้งหมด</option><option>Accept</option><option>Pending</option><option>Reject</option></select></label><label class="field"><span>Format</span><select id="dashFormat"><option value="all">ทั้งหมด</option><option>HYPER</option><option>MBC</option><option>FRANCHISE</option></select></label></div></section>
+          <div class="kpis"><article><span>TOTAL CASES</span><strong id="kpiCases">0</strong><small>Transport cases</small></article><article><span>CLAIM VALUE</span><strong id="kpiAmount">฿0</strong><small>Total claim amount</small></article><article><span>AVG. TICKET</span><strong id="kpiAvg">฿0</strong><small>Average per case</small></article><article><span>COMPLETION</span><strong id="kpiCompletion">0%</strong><small>Accept + Reject</small></article></div>
+          <div class="status-row"><div><i class="dot accept"></i>Accept <strong id="kpiAccept">0</strong></div><div><i class="dot pending"></i>Pending <strong id="kpiPending">0</strong></div><div><i class="dot reject"></i>Reject <strong id="kpiReject">0</strong></div></div>
+          <div class="two-col"><section class="panel"><div class="panel-head"><div><span class="kicker">CASE TREND</span><h3>Daily case volume</h3></div></div><div id="trendChart" class="bar-chart empty">ยังไม่มีข้อมูล</div></section><section class="panel"><div class="panel-head"><div><span class="kicker">FORMAT MIX</span><h3>Case distribution</h3></div></div><div id="formatList" class="metric-list"></div></section></div>
+          <div class="two-col"><section class="panel"><div class="panel-head"><div><span class="kicker">TOP STORES</span><h3>เคสสูงสุดตามสาขา</h3></div></div><div id="topStores" class="mini-list"></div></section><section class="panel"><div class="panel-head"><div><span class="kicker">RECENT CASES</span><h3>รอบรถล่าสุด</h3></div></div><div class="table-wrap"><table><thead><tr><th>Transport</th><th>Date</th><th>Status</th><th>WHO</th><th>Amount</th></tr></thead><tbody id="recentCases"></tbody></table></div></section></div>
+        </section>
+
+        <section id="page-create" class="page" data-title="แจ้งเคลม" data-eyebrow="CLAIM WORKSPACE">
+          <div class="hero"><div><span class="kicker">NEW CLAIM</span><h1 id="claimEditorTitle">สร้างรายการเคลม</h1><p>วางข้อมูลจาก Excel 18 คอลัมน์ แล้วเติมข้อมูลการพิจารณา ระบบจะดึง Master และราคาให้อัตโนมัติ</p></div><button id="resetClaim" class="btn ghost">เคสใหม่</button></div>
+          <section class="panel"><div class="panel-head"><div><span class="step-num">01</span><div><h3>นำเข้าข้อมูล 18 คอลัมน์</h3><p>Store Code ถึง Claim Qty ไม่รวมหัวตาราง</p></div></div><span id="pasteCount" class="pill">0 rows</span></div><textarea id="claimPaste" class="paste" placeholder="วางข้อมูลจาก Excel ที่นี่..."></textarea><div class="panel-actions"><button id="previewClaim" class="btn primary">ตรวจสอบข้อมูล →</button></div></section>
+          <section id="claimEditor" class="panel" hidden><div class="panel-head"><div><span class="step-num">02</span><div><h3>ข้อมูลการพิจารณา</h3><p>ค่าด้านล่างจะถูกใช้กับทุกรายการในชุดนี้</p></div></div><span id="editMode" class="pill">NEW</span></div>
+            <div class="grid three"><label class="field"><span>Claims Reason</span><select id="claimReason"></select></label><label class="field"><span>ตอบกลับสาขา</span><input id="claimReplyDate" type="date"></label><label class="field"><span>Update status</span><select id="claimStatus"></select></label><label class="field"><span>WHO</span><select id="claimWho"></select></label><label class="field"><span>Cause Group</span><select id="claimCauseGroup"></select></label><label class="field"><span>ROOT CAUSE</span><select id="claimRootCause"></select></label><label class="field"><span>Check</span><select id="claimCheck"></select></label><label class="field"><span>Remark List</span><select id="claimRemarkList"></select></label><label class="field"><span>Adjust Code</span><select id="claimSc"></select></label><label class="field"><span>Status SC</span><select id="claimCompleteSc"></select></label><label class="field span-2"><span>Remark</span><input id="claimRemark" placeholder="รายละเอียดเพิ่มเติม"></label></div>
+            <label class="check"><input id="bypassDate" type="checkbox"> อนุญาตวันที่ย้อนหลังเกิน 15 วัน</label>
+            <div class="table-wrap tall"><table><thead><tr><th>#</th><th>Store</th><th>Transport</th><th>Article</th><th>Description</th><th>Qty</th><th>SKU Cost</th><th>Amount</th></tr></thead><tbody id="claimPreviewBody"></tbody></table></div>
+            <div class="save-strip"><div><strong id="claimSummary">0 รายการ</strong><span>ระบบตรวจซ้ำที่ Server ก่อนบันทึก</span></div><button id="saveClaim" class="btn success">บันทึกข้อมูล ✓</button></div>
+          </section>
+        </section>
+
+        <section id="page-claims" class="page" data-title="รายการเคลม" data-eyebrow="CLAIM HISTORY">
+          <div class="hero"><div><span class="kicker">CLAIM HISTORY</span><h1>รายการเคลม</h1><p>ค้นหา เปิดดู แก้ไข และติดตามสถานะตามรอบรถ</p></div><button id="exportClaims" class="btn primary">⇩ Export Excel</button></div>
+          <section class="panel filters"><form id="claimSearch" class="grid five"><label class="field"><span>Transport</span><input id="searchTransport"></label><label class="field"><span>Article</span><input id="searchArticle"></label><label class="field"><span>Store</span><input id="searchStore"></label><label class="field"><span>Date</span><input id="searchDate" type="date"></label><label class="field"><span>Reference</span><input id="searchReference"></label><div class="filter-actions"><button class="btn primary">ค้นหา</button><button id="resetSearch" type="button" class="btn ghost">ล้าง</button></div></form></section>
+          <div id="claimGroups" class="claim-groups"></div>
+        </section>
+
+        <section id="page-validation" class="page" data-title="Validation" data-eyebrow="RUN VALIDATION">
+          <div class="hero"><div><span class="kicker">CLAIM CCD VALIDATION</span><h1>RunValidation</h1><p>ทำงานตาม Macro เดิม: อ่านตั้งแต่แถว 10 ใช้ E = Article + O = Reference และคืนผล Q:X</p></div><div class="contract"><span><b>E</b> Article</span><span><b>O</b> Reference</span></div></div>
+          <div class="two-col"><section class="panel"><div class="panel-head"><div><span class="step-num">01</span><div><h3>เลือกไฟล์ Excel</h3><p>.xlsx / .xlsm / .xls</p></div></div></div><label class="dropzone"><input id="validationFile" type="file" accept=".xlsx,.xlsm,.xls" hidden><strong>⇧ Drop file or browse</strong><span id="validationFileName">ยังไม่ได้เลือกไฟล์</span></label><div class="panel-actions"><button id="runValidation" class="btn primary" disabled>เริ่มตรวจสอบ</button></div></section><section class="panel"><div class="panel-head"><div><span class="step-num">02</span><div><h3>Validation contract</h3><p>ผลลัพธ์เหมือนไฟล์เดิม</p></div></div></div><ul class="rules"><li>พบ → DC Accept / Valid / Process ในระบบได้</li><li>คืน Transport / Vehicle / Driver / Claim Date / Claim No.</li><li>ไม่พบ → No Accept / No Valid</li><li>Download แยก Valid และ No Valid</li></ul></section></div>
+          <section id="validationResult" class="panel" hidden><div class="panel-head"><div><h3>ผลการตรวจสอบ</h3><p><span id="validCount">Valid 0</span> · <span id="invalidCount">No Valid 0</span></p></div><button id="downloadValidation" class="btn success">⇩ Download Result</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Article</th><th>Reference</th><th>Result</th><th>Transport</th><th>Claim No.</th></tr></thead><tbody id="validationBody"></tbody></table></div></section>
+        </section>
+
+        <section id="page-references" class="page" data-title="Reference" data-eyebrow="REFERENCE CENTER">
+          <div class="hero"><div><span class="kicker">REFERENCE</span><h1>Reference Center</h1><p>จัดการ Reference DC และ Transport ที่ระบบออกให้</p></div><button id="addReference" class="btn primary admin-only">＋ เพิ่ม Reference</button></div>
+          <div class="tabs"><button data-ref-tab="DC" class="active">DC</button><button data-ref-tab="TP">TP</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Reference</th><th>Date</th><th>Claim No.</th><th>Store</th><th>Remark</th><th></th></tr></thead><tbody id="referenceBody"></tbody></table></div></section>
+        </section>
+
+        <section id="page-performance" class="page" data-title="สถิติการทำงาน" data-eyebrow="TEAM PERFORMANCE"><div class="hero"><div><span class="kicker">TEAM PERFORMANCE</span><h1>สถิติการทำงาน</h1><p>นับรอบรถที่สร้างใหม่และแก้ไขแยกตามผู้ใช้งาน</p></div><label class="field compact-date"><span>วันที่</span><input id="performanceDate" type="date"></label></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>User</th><th>สร้างใหม่</th><th>แก้ไข</th><th>Total</th></tr></thead><tbody id="performanceBody"></tbody></table></div></section></section>
+
+        <section id="page-dropdowns" class="page admin-page" data-title="ตั้งค่า Dropdown" data-eyebrow="ADMIN CONFIGURATION"><div class="hero"><div><span class="kicker">DYNAMIC OPTIONS</span><h1>ตั้งค่า Dropdown</h1><p>เพิ่มหรือลบค่าที่ใช้ในแบบฟอร์มได้เอง</p></div></div><div id="dropdownCards" class="master-grid"></div></section>
+
+        <section id="page-masters" class="page admin-page" data-title="Master Data" data-eyebrow="ADMIN MASTER DATA">
+          <div class="hero"><div><span class="kicker">MASTER DATA</span><h1>Master Data</h1><p>Master Store และ Master Article สำหรับราคา/น้ำหนัก/Segment</p></div></div>
+          <div class="two-col"><section class="panel"><div class="panel-head"><div><h3>Master Store</h3><p>วาง 5 คอลัมน์: Store Code, Name, Format, Type, Check100</p></div></div><textarea id="storeMasterPaste" class="paste small"></textarea><div class="panel-actions"><button id="saveStoreMaster" class="btn primary">บันทึก Master Store</button></div></section><section class="panel"><div class="panel-head"><div><h3>Master Article — Weekly Replace</h3><p>A=ARTICLE · D=BARCODE · AJ=ITEM_VALUE · AN=SEG_DESCRIPTION</p></div><span id="masterStatus" class="pill">Checking…</span></div><label class="dropzone"><input id="masterArticleFile" type="file" accept=".xlsx,.xlsm,.xls,.csv" hidden><strong>⇧ เลือกไฟล์ Master Article</strong><span id="masterFileName">อัปโหลดชุดใหม่ทุกวันจันทร์</span></label><div id="masterProgress" class="progress"><i></i></div><p id="masterProgressText" class="muted">Master เดิมจะยัง Active จนกว่าชุดใหม่จะครบ</p><div class="panel-actions"><button id="replaceMaster" class="btn success" disabled>Replace Master Article</button></div></section></div>
+        </section>
+
+        <section id="page-history" class="page admin-page" data-title="นำเข้าข้อมูลเก่า" data-eyebrow="HISTORICAL IMPORT"><div class="hero"><div><span class="kicker">A:AQ IMPORT</span><h1>นำเข้าข้อมูลเก่า</h1><p>รองรับไฟล์ Export รูปแบบ Claim CCD 43 คอลัมน์ เพื่อเชื่อมข้อมูลเดิมกับระบบใหม่</p></div></div><section class="panel"><label class="dropzone"><input id="historyFile" type="file" accept=".xlsx,.xlsm,.xls,.csv" hidden><strong>⇧ เลือกไฟล์ข้อมูลเก่า</strong><span id="historyFileName">ยังไม่ได้เลือกไฟล์</span></label><div id="historyProgress" class="progress"><i></i></div><p id="historyText" class="muted">ระบบนำเข้าครั้งละ 100 แถว</p><div class="panel-actions"><button id="importHistory" class="btn primary" disabled>เริ่ม Import</button></div></section></section>
+
+        <section id="page-users" class="page admin-page" data-title="ผู้ใช้งาน" data-eyebrow="USER ADMINISTRATION"><div class="hero"><div><span class="kicker">ACCESS CONTROL</span><h1>ผู้ใช้งาน</h1><p>เพิ่มผู้ใช้และกำหนด Role</p></div><button id="addUser" class="btn primary">＋ เพิ่มผู้ใช้</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Username</th><th>Role</th><th>Created</th><th></th></tr></thead><tbody id="userBody"></tbody></table></div></section></section>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="formDialog" class="dialog"><form id="dialogForm" method="dialog"><div class="dialog-head"><div><span id="dialogKicker" class="eyebrow">FORM</span><h3 id="dialogTitle">กรอกข้อมูล</h3></div><button value="cancel" class="icon-btn">×</button></div><div id="dialogFields" class="dialog-body"></div><div class="dialog-actions"><button value="cancel" class="btn ghost">ยกเลิก</button><button id="dialogSubmit" value="default" class="btn primary">บันทึก</button></div></form></dialog>
+</body>
+</html>
