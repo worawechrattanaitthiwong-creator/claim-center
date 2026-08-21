@@ -1,0 +1,21 @@
+{
+  "name": "claim-center",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Claim Center on Cloudflare Workers + D1, aligned with Claim CCD.xlsm",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check lib/auth.js && node --check lib/claim-logic.js && node --check lib/master-validation.js && node --check public/app.js && node --check public/ccd-adapter.js && node --check public/ops-dashboard.js && node --check public/history-styles.js && node --check public/history-batch-adapter.js && node --check public/history-import.js && node --check public/master-validation.js && node --check public/master-validation-hooks.js && node --check public/pro-ui.js && node --check worker/index.js && node --check worker/d1.js && node --check worker/client-adapter.js && node --check worker/ccd-index.js && node --check worker/dashboard.js && node --check worker/history-import.js && node --check worker/master-validation.js && node --check worker/app.js && node --check worker/production.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply claim-center --local",
+    "db:migrate:remote": "wrangler d1 migrations apply claim-center --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,0 +1,10 @@
+.history-quota { padding: 12px 13px; border: 1px solid #dbe7f4; border-radius: 12px; background: linear-gradient(135deg,#f8fbff,#fff); }
+.history-quota-head, .history-quota-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.history-quota-head span { color: #64748b; font: 700 .58rem/1 Manrope,sans-serif; letter-spacing: .09em; }
+.history-quota-head strong { color: #1d4ed8; font-size: .72rem; }
+.history-quota-track { height: 6px; margin: 9px 0 7px; overflow: hidden; border-radius: 999px; background: #e8eef6; }
+.history-quota-track i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#2563eb,#06b6d4); transition: width .25s ease; }
+.history-quota-foot { color: #8b98aa; font-size: .61rem; }
+.history-quota.near-limit { border-color: #fde68a; background: #fffbeb; }
+.history-quota.near-limit .history-quota-head strong { color: #b45309; }
+.history-quota.near-limit .history-quota-track i { background: linear-gradient(90deg,#f59e0b,#ef4444); }
