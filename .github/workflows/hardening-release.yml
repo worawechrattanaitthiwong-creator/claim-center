@@ -1,0 +1,213 @@
+name: Apply Production Hardening
+
+on:
+  push:
+    branches: [main]
+    paths: ['.hardening-trigger']
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: ${{ !contains(github.event.head_commit.message, '[hardening-bot]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply security, data integrity and runtime cleanup
+        shell: python
+        run: |
+          from pathlib import Path
+          import json, re
+
+          # 1) Public configuration: never expose the administrator username.
+          p = Path('wrangler.jsonc')
+          cfg = json.loads(p.read_text())
+          cfg.setdefault('vars', {}).pop('ADMIN_USERNAME', None)
+          cfg['vars']['SESSION_HOURS'] = '10'
+          p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n')
+
+          # 2) Login HTML: no real account in placeholder/value.
+          p = Path('site/index.html')
+          html = p.read_text()
+          html = html.replace('placeholder="2030164"', 'placeholder="กรอก Username หรือรหัสพนักงาน"')
+          html = html.replace('value="2030164"', 'value=""')
+          if '2030164' in html:
+              raise SystemExit('Real administrator username still exists in site/index.html')
+          p.write_text(html)
+
+          # 3) Replace eval bootstrap with normal classic script loading.
+          Path('site/app.js').write_text(r'''const runtimeStyle=document.createElement('link');
+runtimeStyle.rel='stylesheet';
+runtimeStyle.href='/v5-extra.css?v=20260822-hardening-v6';
+document.head.appendChild(runtimeStyle);
+
+globalThis.__CLAIM_V6_LOADER__=true;
+
+const loginUser=document.getElementById('loginUsername');
+if(loginUser){loginUser.value='';loginUser.placeholder='กรอก Username หรือรหัสพนักงาน';loginUser.autocomplete='username';loginUser.removeAttribute('value');}
+const loginPass=document.getElementById('loginPassword');
+if(loginPass){loginPass.value='';loginPass.placeholder='กรอกรหัสผ่าน';loginPass.autocomplete='current-password';}
+
+const buildNode=document.getElementById('loginBuild');
+if(buildNode){
+  const holder=buildNode.parentElement;
+  if(holder?.firstChild)holder.firstChild.textContent='System ';
+  buildNode.textContent='กำลังเชื่อมต่อ…';
+}
+
+function loadClassic(src){
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src=src;
+    s.async=false;
+    s.onload=resolve;
+    s.onerror=()=>reject(new Error(`Load failed: ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
+try{
+  await loadClassic('/app-core-v5.js?v=20260822-hardening-v6');
+  await loadClassic('/claim-workspace-v5.js?v=20260822-hardening-v6');
+  await loadClassic('/admin-v5.js?v=20260822-hardening-v6');
+  if(document.readyState!=='loading' && typeof globalThis.init==='function')globalThis.init();
+}catch(error){
+  console.error('Claim Center runtime bootstrap failed',error);
+  if(buildNode){buildNode.textContent='ระบบโหลดไม่สมบูรณ์';buildNode.style.color='#e44b60';}
+  const button=document.querySelector('.login-btn');
+  if(button){button.disabled=true;const label=button.querySelector('span');if(label)label.textContent='ระบบยังไม่พร้อมใช้งาน';}
+}
+''')
+
+          # 4) Worker hardening + Excel data normalization.
+          p = Path('worker/v5-entry.js')
+          w = p.read_text()
+          w = w.replace("const BUILD='2026-08-22-global-ops-v5';", "const BUILD='2026-08-22-security-hardening-v6';")
+          w = w.replace("worker:'worker/v5-entry.js'", "worker:'worker/v5-entry.js',security:'rate-limit+origin+money-rounding'")
+
+          old_admin = re.search(r"async function ensureAdmin\(env\)\{.*?\n\}\n(?=async function login)", w, re.S)
+          if not old_admin: raise SystemExit('ensureAdmin block not found')
+          new_admin = '''async function ensureAdmin(env){
+  const n=await env.DB.prepare('SELECT COUNT(*) n FROM users').first();if(Number(n?.n||0)>0)return;
+  const username=text(env.ADMIN_USERNAME);
+  if(!username)throw pub(503,'ยังไม่ได้ตั้ง ADMIN_USERNAME เป็น Cloudflare secret');
+  if(!env.ADMIN_PASSWORD)throw pub(503,'ยังไม่ได้ตั้ง ADMIN_PASSWORD');
+  const t=now();await env.DB.prepare("INSERT INTO users(username,password_hash,display_name,role,active,created_at,updated_at) VALUES(?,?,?,'admin',1,?,?)").bind(username,hashPassword(env.ADMIN_PASSWORD),'Administrator',t,t).run();
+}
+'''
+          w = w[:old_admin.start()] + new_admin + w[old_admin.end():]
+
+          login_match = re.search(r"async function login\(req,env,url\)\{.*?\n(?=async function logout)", w, re.S)
+          if not login_match: raise SystemExit('login function not found')
+          new_login = '''async function login(req,env,url){
+  await ensureAdmin(env);
+  const b=await body(req),username=text(b.username),rateKey=loginRateKey(req,username),limit=await loginRateState(env,rateKey);
+  if(limit.blocked)return json({status:'error',message:'ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่',retryAfter:limit.retryAfter},429);
+  const u=await env.DB.prepare('SELECT * FROM users WHERE username=? COLLATE NOCASE').bind(username).first();
+  if(!u||!u.active||!verifyPassword(b.password,u.password_hash)){
+    await recordLoginFailure(env,rateKey);
+    return json({status:'error',message:'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง'},401);
+  }
+  await clearLoginFailures(env,rateKey);
+  const token=randomBytes(32).toString('base64url'),h=sha(token),age=Math.max(1,Number(env.SESSION_HOURS||10))*3600,ts=Date.now();
+  await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE expires_at<=?').bind(ts),env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at,last_seen_at) VALUES(?,?,?,?,?)').bind(h,u.id,ts+age*1000,ts,ts),env.DB.prepare('UPDATE users SET last_login_at=?,updated_at=? WHERE id=?').bind(now(),now(),u.id)]);
+  await log(env,u.username,'LOGIN','USER',String(u.id),'','','','Login success');
+  const r=json({status:'success',user:publicUser(u)});r.headers.append('Set-Cookie',cookie(token,age,url.protocol==='https:'));return r;
+}
+'''
+          w = w[:login_match.start()] + new_login + w[login_match.end():]
+
+          # Origin protection for both public auth POST endpoints.
+          w = w.replace("if(url.pathname==='/api/auth/login'&&m==='POST')return login(req,env,url);", "if(url.pathname==='/api/auth/login'&&m==='POST'){checkOrigin(req,url);return login(req,env,url);}")
+          w = w.replace("if(url.pathname==='/api/auth/logout'&&m==='POST')return logout(req,env,url);", "if(url.pathname==='/api/auth/logout'&&m==='POST'){checkOrigin(req,url);return logout(req,env,url);}")
+
+          rate_helpers = '''\nconst LOGIN_WINDOW_MS=15*60*1000,LOGIN_BLOCK_MS=15*60*1000,LOGIN_MAX_FAILURES=8;
+function loginRateKey(req,username){const ip=text(req.headers.get('CF-Connecting-IP')||req.headers.get('x-forwarded-for')||'unknown');return sha(`${ip}|${String(username||'').toLowerCase()}`);}
+async function loginRateState(env,key){const t=Date.now(),r=await env.DB.prepare('SELECT failures,window_started_at,blocked_until FROM login_rate_limits WHERE rate_key=?').bind(key).first();if(!r)return{blocked:false,retryAfter:0};if(Number(r.blocked_until||0)>t)return{blocked:true,retryAfter:Math.ceil((Number(r.blocked_until)-t)/1000)};if(t-Number(r.window_started_at||0)>LOGIN_WINDOW_MS){await env.DB.prepare('DELETE FROM login_rate_limits WHERE rate_key=?').bind(key).run();return{blocked:false,retryAfter:0};}return{blocked:false,retryAfter:0};}
+async function recordLoginFailure(env,key){const t=Date.now(),r=await env.DB.prepare('SELECT failures,window_started_at FROM login_rate_limits WHERE rate_key=?').bind(key).first();let started=t,failures=1;if(r&&t-Number(r.window_started_at||0)<=LOGIN_WINDOW_MS){started=Number(r.window_started_at);failures=Number(r.failures||0)+1;}const blocked=failures>=LOGIN_MAX_FAILURES?t+LOGIN_BLOCK_MS:0;await env.DB.prepare('INSERT INTO login_rate_limits(rate_key,failures,window_started_at,blocked_until,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(rate_key) DO UPDATE SET failures=excluded.failures,window_started_at=excluded.window_started_at,blocked_until=excluded.blocked_until,updated_at=excluded.updated_at').bind(key,failures,started,blocked,t).run();}
+async function clearLoginFailures(env,key){await env.DB.prepare('DELETE FROM login_rate_limits WHERE rate_key=?').bind(key).run();}
+'''
+          marker = 'async function requireUser(req,env)'
+          if marker not in w: raise SystemExit('requireUser marker not found')
+          w = w.replace(marker, rate_helpers + '\n' + marker, 1)
+
+          # Store codes exported from Excel may arrive as 10101.00 / 10101.000.
+          w = w.replace("function digits(v){return text(v).replace(/\\.0$/,'');}", "function digits(v){const s=text(v).replaceAll(',','');return /^[+-]?\\d+\\.0+$/.test(s)?s.replace(/\\.0+$/,''):s;}")
+          w = w.replace("{code:text(raw[0]),name:text(raw[1]||raw[4])", "{code:digits(raw[0]),name:text(raw[1]||raw[4])")
+          w = w.replace("{code:text(raw.storeCode),name:text(raw.storeName)", "{code:digits(raw.storeCode),name:text(raw.storeName)")
+          w = w.replace("stores=uniq((b.stores||[]).map(text).filter(Boolean))", "stores=uniq((b.stores||[]).map(digits).filter(Boolean))")
+          w = w.replace("p.push(text(x.storeCode),text(x.article)", "p.push(digits(x.storeCode),text(x.article)")
+          w = w.replace("`${text(x.storeCode)}|${text(x.article)", "`${digits(x.storeCode)}|${text(x.article)")
+
+          # Currency: always calculate/store/export to 2 decimal places.
+          w = w.replace("r.amount=r.skuCost*num(r.claimQty);", "r.amount=roundMoney(r.skuCost*num(r.claimQty));")
+          w = w.replace("g.totalAmount+=Number(r.amount_claim||0);", "g.totalAmount=roundMoney(g.totalAmount+Number(r.amount_claim||0));")
+          w = w.replace("amount:Number(r.amount_claim||0)", "amount:roundMoney(r.amount_claim)")
+          w = w.replace("Number(r.amount_claim||0),r.ship_date", "roundMoney(r.amount_claim),r.ship_date")
+          w = w.replace("totalAmount:rows.reduce((s,x)=>s+num(x.amount),0)", "totalAmount:roundMoney(rows.reduce((s,x)=>s+num(x.amount),0))")
+          w = w.replace("function text(v){return String(v??'').trim();}", "function text(v){return String(v??'').trim();}function roundMoney(v){return Math.round((num(v)+Number.EPSILON)*100)/100;}")
+
+          if '2030164' in w: raise SystemExit('Real administrator username still exists in active Worker')
+          if 'roundMoney(r.skuCost*num(r.claimQty))' not in w: raise SystemExit('Money rounding patch failed')
+          if "checkOrigin(req,url);return login" not in w: raise SystemExit('Login Origin patch failed')
+          p.write_text(w)
+
+          # 5) D1 rate-limit storage + DB-level cent rounding.
+          Path('migrations/0009_security_data_hardening.sql').write_text('''PRAGMA foreign_keys = ON;\n\nCREATE TABLE IF NOT EXISTS login_rate_limits (\n  rate_key TEXT PRIMARY KEY,\n  failures INTEGER NOT NULL DEFAULT 0,\n  window_started_at INTEGER NOT NULL DEFAULT 0,\n  blocked_until INTEGER NOT NULL DEFAULT 0,\n  updated_at INTEGER NOT NULL DEFAULT 0\n) WITHOUT ROWID;\nCREATE INDEX IF NOT EXISTS idx_login_rate_blocked ON login_rate_limits(blocked_until);\n\nDROP TRIGGER IF EXISTS trg_claim_amount_round_insert;\nDROP TRIGGER IF EXISTS trg_claim_amount_round_update;\nCREATE TRIGGER trg_claim_amount_round_insert\nAFTER INSERT ON claims\nWHEN NEW.amount_claim != ROUND(NEW.amount_claim, 2)\nBEGIN\n  UPDATE claims SET amount_claim = ROUND(NEW.amount_claim, 2) WHERE id = NEW.id;\nEND;\nCREATE TRIGGER trg_claim_amount_round_update\nAFTER UPDATE OF amount_claim ON claims\nWHEN NEW.amount_claim != ROUND(NEW.amount_claim, 2)\nBEGIN\n  UPDATE claims SET amount_claim = ROUND(NEW.amount_claim, 2) WHERE id = NEW.id;\nEND;\n''')
+
+          # 6) Remove obsolete runtime files and temporary smoke triggers.
+          for name in ['worker/main.js','worker/contract-entry.js','site/app-core.js','site/app-contract.js','site/ux-runtime.js']:
+              Path(name).unlink(missing_ok=True)
+          for x in Path('.').glob('.smoke*'):
+              if x.is_file(): x.unlink()
+
+          # 7) Permanent regression test used by Cloudflare build.
+          Path('test').mkdir(exist_ok=True)
+          Path('test/hardening-check.mjs').write_text(r'''import fs from 'node:fs';
+const worker=fs.readFileSync('worker/v5-entry.js','utf8');
+const app=fs.readFileSync('site/app.js','utf8');
+const html=fs.readFileSync('site/index.html','utf8');
+const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
+for(const [name,text] of [['worker',worker],['index',html],['wrangler',wrangler]]) if(text.includes('2030164')) throw new Error(`Public admin username leaked in ${name}`);
+if(/\beval\s*\(/.test(app)) throw new Error('eval() is forbidden in site/app.js');
+if(!app.includes('__CLAIM_V6_LOADER__')) throw new Error('normal-script V6 loader missing');
+if(!worker.includes('login_rate_limits')||!worker.includes('LOGIN_MAX_FAILURES')) throw new Error('login rate limit missing');
+if(!worker.includes("checkOrigin(req,url);return login")||!worker.includes("checkOrigin(req,url);return logout")) throw new Error('auth Origin check missing');
+if(!worker.includes("/^[+-]?\\d+\\.0+$/")) throw new Error('Excel Store Code normalization missing');
+if(!worker.includes('roundMoney(r.skuCost*num(r.claimQty))')) throw new Error('money rounding missing');
+for(const f of ['worker/main.js','worker/contract-entry.js','site/app-core.js','site/app-contract.js','site/ux-runtime.js']) if(fs.existsSync(f)) throw new Error(`obsolete file still exists: ${f}`);
+console.log('Security + data integrity hardening contract ok');
+''')
+          pkgp=Path('package.json'); pkg=json.loads(pkgp.read_text());
+          pkg['version']='5.1.0'
+          if 'node test/hardening-check.mjs' not in pkg['scripts']['test']:
+              pkg['scripts']['test'] += ' && node test/hardening-check.mjs'
+          pkgp.write_text(json.dumps(pkg,ensure_ascii=False,indent=2)+'\n')
+
+          # Production smoke must wait for the hardened release, not stale V5.
+          smoke=Path('.github/workflows/production-smoke.yml')
+          if smoke.exists():
+              s=smoke.read_text().replace('2026-08-22-global-ops-v5','2026-08-22-security-hardening-v6').replace('__CLAIM_V5_STARTED__','__CLAIM_V6_LOADER__')
+              smoke.write_text(s)
+
+      - name: Validate hardened source
+        run: |
+          node --check worker/v5-entry.js
+          node --check site/app.js
+          node --check site/app-core-v5.js
+          node --check site/claim-workspace-v5.js
+          node --check site/admin-v5.js
+          node test/hardening-check.mjs
+          npm test
+
+      - name: Commit hardened release to main
+        run: |
+          git config user.name "claim-center-hardening-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "[hardening-bot] Secure auth and normalize claim data"
+          git push origin main
