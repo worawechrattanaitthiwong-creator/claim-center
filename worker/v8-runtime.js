@@ -2,7 +2,9 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 import v8 from './v8-entry.js';
 
 const COOKIE = 'claim_session';
-const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-compat1"></script>';
+const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-login2"></script>';
+const V8_SCRIPT_FROM = '/v8.js?v=20260822-v8';
+const V8_SCRIPT_TO = '/v8.js?v=20260822-loginfix1';
 
 export default {
   async fetch(request, env) {
@@ -33,12 +35,21 @@ export default {
 
     const response = await v8.fetch(request, env);
 
+    // LOGIN_UI_FREEZE_FIX_20260822
+    // V8 used to observe #loginBuild and write textContent again inside its own observer.
+    // That creates an endless mutation loop on some mobile browsers and freezes touch/input.
+    // Patch only the served V8 asset here so the urgent login fix stays isolated from Store/DC logic.
+    if (method === 'GET' && url.pathname === '/v8.js') {
+      return patchLoginUiAsset(response);
+    }
+
     // Compatibility layer: keep the new Store/DC workflow, while restoring the original
     // Claim Workspace logic and the system-wide Decision Master behavior.
     if (method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       const type = response.headers.get('content-type') || '';
       if (response.ok && type.includes('text/html')) {
         let html = await response.text();
+        html = html.replaceAll(V8_SCRIPT_FROM, V8_SCRIPT_TO);
         if (!html.includes('/v8-compat.js')) html = html.replace('</body>', `${COMPAT_SCRIPT}</body>`);
         const headers = new Headers(response.headers);
         headers.set('content-type', 'text/html; charset=utf-8');
@@ -50,6 +61,21 @@ export default {
     return response;
   }
 };
+
+async function patchLoginUiAsset(response) {
+  const type = response.headers.get('content-type') || '';
+  if (!response.ok || (!type.includes('javascript') && !type.includes('text/plain'))) return response;
+
+  let js = await response.text();
+  const frozen = `    const obs = new MutationObserver(() => {\n      if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent = 'พร้อมใช้งาน';\n    });\n    obs.observe(loginBuild, { childList:true, characterData:true, subtree:true });\n    setTimeout(() => { if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent='พร้อมใช้งาน'; }, 300);`;
+  const safe = `    // LOGIN_UI_FREEZE_FIX_20260822: do not observe and rewrite the same node.\n    if (!/ไม่สามารถ/.test(loginBuild.textContent) && loginBuild.textContent !== 'พร้อมใช้งาน') {\n      loginBuild.textContent = 'พร้อมใช้งาน';\n    }`;
+
+  if (js.includes(frozen)) js = js.replace(frozen, safe);
+  const headers = new Headers(response.headers);
+  headers.set('content-type', 'text/javascript; charset=utf-8');
+  headers.set('cache-control', 'no-store, max-age=0');
+  return new Response(js, { status: response.status, statusText: response.statusText, headers });
+}
 
 async function requireUser(request, env) {
   const token = getCookie(request);
