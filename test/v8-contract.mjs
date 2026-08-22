@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const worker = fs.readFileSync('worker/v8-entry.js', 'utf8');
 const runtime = fs.readFileSync('worker/v8-runtime.js', 'utf8');
+const evidenceRuntime = fs.readFileSync('worker/evidence-runtime.js', 'utf8');
 const ui = fs.readFileSync('site/v8.js', 'utf8');
 const css = fs.readFileSync('site/v8.css', 'utf8');
 const migration = fs.readFileSync('migrations/0011_store_dc_workflow_v8.sql', 'utf8');
@@ -44,6 +45,6 @@ assert.ok(css.includes('.v8-review-table'), 'Detailed DC review styling missing'
 assert.ok(migration.includes('CREATE TABLE store_case_items'), 'Normalized Store item table missing');
 assert.ok(migration.includes('received_date'), 'Store received date column missing');
 assert.ok(migration.includes("'store_topic'"), 'Store topic dropdown seed missing');
-assert.ok(wrangler.includes('"main": "worker/v8-runtime.js"'), 'V8 runtime is not active');
+assert.ok(wrangler.includes('"main": "worker/evidence-runtime.js"') && evidenceRuntime.includes("import runtime from './v8-runtime.js'"), 'V8 runtime is not active through evidence wrapper');
 
 console.log('Claim Center V8 contract checks passed');
