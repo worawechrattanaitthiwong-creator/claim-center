@@ -7,7 +7,8 @@ const V8 = {
   registryClaim: null,
   bootedFor: '',
   productCache: new Map(),
-  masterTimer: null
+  masterTimer: null,
+  storeMaster: null
 };
 
 const $ = (s, r=document) => r.querySelector(s);
@@ -113,11 +114,54 @@ function installCorporateUi() {
     }).observe(preview, { childList:true, characterData:true, subtree:true });
   }
   const storeSwitch = $('#portalSwitch [data-mode="store"]');
-  if (storeSwitch) storeSwitch.textContent = 'Store View';
+  if (storeSwitch) storeSwitch.textContent = 'Store Data';
   installStoreForm();
   installExtraNavigation();
   installRegistryDialog();
+  installQueueTransportFilter();
+  installCorporateTextGuard();
   installObservers();
+}
+
+function installQueueTransportFilter() {
+  const page = $('#page-queue');
+  const intro = $('#page-queue .page-intro');
+  if (!page || !intro || $('#v8QueueFilter')) return;
+  intro.insertAdjacentHTML('afterend', `
+    <form id="v8QueueFilter" class="filter-card v8-transport-filter">
+      <label><span>ค้นหาด้วย Transport</span><input id="v8QueueTransport" autocomplete="off" placeholder="Transport No."></label>
+      <button class="btn primary" type="submit">ค้นหา Ticket</button>
+      <button id="v8QueueClear" class="btn ghost" type="button">ล้างการค้นหา</button>
+    </form>`);
+  $('#v8QueueFilter').addEventListener('submit', e => { e.preventDefault(); renderQueueV8(); });
+  $('#v8QueueClear').onclick = () => { $('#v8QueueTransport').value=''; renderQueueV8(); };
+}
+
+function installCorporateTextGuard() {
+  const clean = root => {
+    const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      const parent = node.parentElement;
+      if (!parent || ['SCRIPT','STYLE','CODE','PRE'].includes(parent.tagName)) continue;
+      const before = node.nodeValue || '';
+      const after = before
+        .replace(/A:AQ\s*43\s*(?:columns|คอลัมน์)/gi,'โครงสร้างข้อมูลมาตรฐาน')
+        .replace(/43\s*(?:columns|คอลัมน์)(?:\s*A:AQ)?/gi,'โครงสร้างข้อมูลมาตรฐาน')
+        .replace(/D1\s*Connected/gi,'ระบบพร้อมใช้งาน')
+        .replace(/\bCollaboration\s+V7\b/gi,'')
+        .replace(/\bStore\/DC\s+Workflow\s+V8\b/gi,'');
+      if (after !== before) node.nodeValue = after;
+    }
+  };
+  clean(document.body);
+  new MutationObserver(records => {
+    for (const r of records) {
+      if (r.type === 'characterData') clean(r.target.parentElement || document.body);
+      for (const n of r.addedNodes || []) if (n.nodeType === 1) clean(n);
+    }
+  }).observe(document.body, {subtree:true,childList:true,characterData:true});
 }
 
 function installStoreForm() {
@@ -155,6 +199,7 @@ function installStoreForm() {
           <label>หัวข้อการเคลม <span class="required">*</span><select id="storeClaimSubject" required></select></label>
           <label class="span-2">รายละเอียดเพิ่มเติม<textarea id="storeClaimDetails" rows="3" placeholder="รายละเอียดที่ช่วยให้ DC ตรวจสอบได้ถูกต้อง"></textarea></label>
         </div>
+        <div id="v8StoreMasterDetails" class="v8-master-strip" hidden></div>
       </article>
 
       <article class="card">
@@ -361,7 +406,10 @@ function applyRoleUi() {
   }
 
   const switchStore = $('#portalSwitch [data-mode="store"]');
-  if (switchStore && !isStore()) switchStore.textContent = isAdmin() ? 'Store Admin' : 'Store View';
+  if (switchStore && !isStore()) {
+    switchStore.textContent = isAdmin() ? 'Store Admin' : 'Store Data · Read only';
+    switchStore.title = isAdmin() ? 'จัดการข้อมูล Store' : 'ดูข้อมูล Store เท่านั้น ไม่สามารถส่งหรือแก้ไขแทน Store ได้';
+  }
 
   const submit = $('#v8StoreSubmit');
   if (submit) submit.hidden = !(isStore() || isAdmin());
@@ -382,7 +430,7 @@ async function refreshOptions() {
     V8.optionRows = Array.isArray(r.data) ? r.data : [];
     V8.options = r.grouped || {};
     const topic = $('#storeClaimSubject');
-    if (topic) topic.innerHTML = selectOptions('store_topic');
+    if (topic) topic.innerHTML = (V8.options.store_topic||[]).length ? selectOptions('store_topic') : selectOptions('claims_reason');
     $$('.siReason').forEach(s => {
       const val = s.value;
       s.innerHTML = selectOptions('claims_reason', val);
@@ -400,10 +448,15 @@ function addStoreItemV8(v={}) {
   row.innerHTML = `
     <div class="v8-item-head"><span class="v8-line-no">รายการ</span><button type="button" class="icon-btn siRemove" title="ลบรายการ">×</button></div>
     <div class="v8-item-grid">
-      <label>Article<input class="siArticle" value="${esc(v.article||'')}" placeholder="ใส่ได้ หรือค้นชื่อสินค้า"></label>
-      <label class="v8-product-field">ชื่อสินค้า <span class="required">*</span><input class="siProduct" list="v8ProductList" value="${esc(v.description||v.productName||'')}" placeholder="พิมพ์ชื่อเพื่อค้น Master"></label>
+      <label>Article <small>ไม่บังคับ</small><input class="siArticle" value="${esc(v.article||'')}" placeholder="เว้นได้ ถ้าเลือกชื่อสินค้าจาก Master"></label>
+      <label class="v8-product-field">ชื่อสินค้า <span class="required">*</span><input class="siProduct" list="v8ProductList" value="${esc(v.description||v.productName||'')}" placeholder="พิมพ์ชื่อสินค้า / Barcode / Article"></label>
       <label>Barcode<input class="siBarcode" value="${esc(v.barcode||'')}" placeholder="Barcode"></label>
-      <label>ราคา / หน่วย<input class="siPrice" value="${esc(v.skuCost??'')}" readonly placeholder="จาก Master"></label>
+      <label>ราคา / หน่วย<input class="siPrice" value="${esc(v.skuCost??v.master?.sku_cost??'')}" readonly placeholder="จาก Master"></label>
+      <label>หน่วยเตรียม<input class="siPrep" value="${esc(v.prepUnit||v.master?.prep_unit||'')}" readonly placeholder="จาก Master"></label>
+      <label>Pack Size<input class="siPack" value="${esc(v.packSize||v.master?.pack_size||'')}" readonly placeholder="จาก Master"></label>
+      <label class="span-2">Supplier<input class="siSupplier" value="${esc(v.supplierName||v.master?.supplier_name||'')}" readonly placeholder="จาก Master"></label>
+      <label>Master Status<input class="siMasterStatus" value="${esc(v.masterStatus||v.master?.master_status||'')}" readonly></label>
+      <label>Segment<input class="siSegment" value="${esc(v.segment||v.master?.segment||v.segDescription||'')}" readonly></label>
       <label>Delivery Qty<input class="siDelivery" type="number" step="0.001" value="${esc(v.deliveryQty??'')}"></label>
       <label>Received Qty<input class="siReceived" type="number" step="0.001" value="${esc(v.receivedQty??'')}"></label>
       <label>Claim Qty <span class="required">*</span><input class="siClaim" type="number" step="0.001" min="0" value="${esc(v.claimQty??v.qty??1)}" required></label>
@@ -445,7 +498,7 @@ function searchMasterForRow(row) {
       const r = await api('/api/v8/master/articles?q=' + encodeURIComponent(q));
       row._v8Matches = r.data || [];
       const list = $('#v8ProductList');
-      if (list) list.innerHTML = row._v8Matches.map(x => `<option value="${esc(x.description)}">${esc(x.article)} · ฿${money.format(x.sku_cost||0)}</option>`).join('');
+      if (list) list.innerHTML = row._v8Matches.map(x => `<option value="${esc(x.description)}">${esc(x.article)} · ฿${money.format(x.sku_cost||0)} · ${esc(x.prep_unit||'')} ${esc(x.supplier_name||'')}</option>`).join('');
     } catch {}
   }, 220);
 }
@@ -463,7 +516,13 @@ async function resolveMasterForRow(row, mode) {
       $('.siBarcode',row).value = hit.barcode || '';
       $('.siProduct',row).value = hit.description || '';
       $('.siPrice',row).value = Number(hit.sku_cost||0).toFixed(2);
+      $('.siPrep',row).value = hit.prep_unit || '';
+      $('.siPack',row).value = hit.pack_size || '';
+      $('.siSupplier',row).value = hit.supplier_name || '';
+      $('.siMasterStatus',row).value = hit.master_status || '';
+      $('.siSegment',row).value = hit.segment || hit.seg_description || '';
       row.dataset.master = '1';
+      row._v8Master = hit;
       updateItemAmount(row);
     }
   } catch (e) {
@@ -476,12 +535,25 @@ async function loadStoreMasterInfo() {
   if (!code || !V8.user) return;
   try {
     const r = await api('/api/v8/store/info?store=' + encodeURIComponent(code));
-    $('#v8StoreName').value = r.data.store_name || '';
+    const m = r.data || {};
+    V8.storeMaster = m;
+    $('#v8StoreName').value = m.thai_name || m.store_name || m.english_name || '';
     const badge = $('#v8StoreMasterBadge');
-    if (badge) badge.textContent = `${r.data.format_type || 'Store'} · ${r.data.store_type || 'Master verified'}`;
+    if (badge) badge.textContent = `${m.lanes || m.format_type || 'Store'} · ${m.store_type || 'Master verified'}`;
+    const detail = $('#v8StoreMasterDetails');
+    if (detail) {
+      const pairs = [
+        ['สถานะสาขา',m.store_status],['Region',m.region],['Zone',m.zone_th],['Sub zone',m.sub_zone],
+        ['Lanes',m.lanes||m.format_type],['Via Hub',m.via_hub_location_id],['Max truck',m.max_truck_type],['เช็ค 100%',m.check_100]
+      ].filter(x=>x[1]);
+      detail.innerHTML = pairs.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+      detail.hidden = !pairs.length;
+    }
   } catch (e) {
+    V8.storeMaster = null;
     $('#v8StoreName').value = '';
     if ($('#v8StoreMasterBadge')) $('#v8StoreMasterBadge').textContent = 'ไม่พบใน Master Store';
+    if ($('#v8StoreMasterDetails')) { $('#v8StoreMasterDetails').hidden = true; $('#v8StoreMasterDetails').innerHTML=''; }
   }
 }
 
@@ -496,7 +568,9 @@ function collectStorePayload() {
     receivedQty: $('.siReceived',row).value,
     claimQty: $('.siClaim',row).value,
     claimsReason: $('.siReason',row).value,
-    remark: $('.siRemark',row).value
+    remark: $('.siRemark',row).value,
+    prepUnit: $('.siPrep',row).value, packSize: $('.siPack',row).value, supplierName: $('.siSupplier',row).value,
+    masterStatus: $('.siMasterStatus',row).value, segment: $('.siSegment',row).value
   })).filter(x => x.article || x.productName || x.barcode);
   return {
     storeCode: $('#storeClaimStore').value,
@@ -548,6 +622,8 @@ function resetStoreForm() {
   $('#v8StoreFormTitle').textContent = 'แจ้งเคลมให้ DC ตรวจสอบ';
   $('#v8StoreSubmit').textContent = 'ส่ง Ticket ให้ DC';
   $('#v8CancelStoreEdit').hidden = true;
+  V8.storeMaster = null;
+  if ($('#v8StoreMasterDetails')) { $('#v8StoreMasterDetails').hidden=true; $('#v8StoreMasterDetails').innerHTML=''; }
   if (isStore()) {
     $('#storeClaimStore').value = V8.user.storeCode;
     $('#storeClaimStore').readOnly = true;
@@ -588,7 +664,8 @@ function onPageActive(name) {
 async function renderQueueV8() {
   if (!V8.user || isStore()) return;
   try {
-    const r = await api('/api/v8/dc/queue');
+    const transport = $('#v8QueueTransport')?.value?.trim() || '';
+    const r = await api('/api/v8/dc/queue' + (transport ? `?transport=${encodeURIComponent(transport)}` : ''));
     if ($('#queueBadge')) $('#queueBadge').textContent = (r.summary.submitted||0) + (r.summary.disputed||0);
     const stats = $('#queueStats');
     if (stats) stats.innerHTML = [
@@ -667,13 +744,20 @@ async function openCaseV8(id) {
 function renderCaseV8(c, messages=[]) {
   const editableStore = (isStore() && ['SUBMITTED','RETURNED_TO_STORE'].includes(c.status)) || isAdmin();
   const review = canReview();
+  const masterStore = c.masterStore || {};
   $('#caseTitle').textContent = `Transport ${c.transport_no} · ${c.case_no}`;
   const rows = c.items || [];
+  const storeMasterFacts = [
+    ['Store type',masterStore.store_type],['สถานะสาขา',masterStore.store_status],['Region',masterStore.region],['Zone',masterStore.zone_th],
+    ['Sub zone',masterStore.sub_zone],['Lanes',masterStore.lanes||masterStore.format_type],['Via Hub',masterStore.via_hub_location_id],
+    ['Max truck',masterStore.max_truck_type],['เช็ค 100%',masterStore.check_100]
+  ].filter(x=>x[1]);
   $('#caseContent').innerHTML = `
     <div class="v8-dialog-transport"><span>TRANSPORT / TICKET</span><strong>${esc(c.transport_no)}</strong><div>${statusBadge(c.status)}</div></div>
+    <div class="v8-review-note"><b>Ticket นี้ส่งเข้าหน้า Claim ได้โดยตรง</b><span>DC ไม่ต้องคัดลอกจาก Excel — ข้อมูล Store, Transport, วันที่ และรายการสินค้าถูกเชื่อมต่อไว้แล้ว</span></div>
     ${c.status==='RETURNED_TO_STORE' ? `<div class="v8-return-note"><b>DC ส่งกลับให้แก้ไข</b><p>${esc(c.correction_note||'')}</p></div>` : ''}
     <div class="v8-detail-grid">
-      ${detail('Store', `${c.store_code} ${c.store_name||''}`)}
+      ${detail('Store', `${c.store_code} ${c.store_name||masterStore.thai_name||''}`)}
       ${detail('วันที่รับสินค้า', c.received_date||'—')}
       ${detail('วันที่แจ้งเคลม', c.claim_date||c.ship_date||'—')}
       ${detail('Claim DC', c.claim_dc||'—')}
@@ -684,25 +768,35 @@ function renderCaseV8(c, messages=[]) {
       ${detail('Pallet No.', c.pallet_no||'—')}
       ${detail('Tote / Basket', c.basket_no||'—')}
       ${detail('หัวข้อ', c.subject||'—')}
+      ${detail('จำนวนสินค้า', `${rows.length} รายการ`)}
       ${detail('มูลค่า', '฿'+money.format(c.amount||0))}
+      ${detail('ผู้รับผิดชอบ', c.assigned_to||'—')}
     </div>
-    <div class="v8-details-text"><b>รายละเอียด</b><p>${esc(c.details||'—')}</p></div>
+    ${storeMasterFacts.length ? `<section class="v8-master-review"><div class="eyebrow">MASTER STORE</div><div class="v8-master-strip">${storeMasterFacts.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div></section>` : ''}
+    <div class="v8-details-text"><b>รายละเอียดจาก Store</b><p>${esc(c.details||'—')}</p></div>
     <div class="table-wrap v8-review-table"><table>
-      <thead><tr><th>#</th><th>Article</th><th>Barcode</th><th>Description</th><th>Delivery</th><th>Received</th><th>Claim</th><th>Reason</th><th>SKU Cost</th><th>Amount</th><th>Remark</th></tr></thead>
-      <tbody>${rows.map((i,n)=>`<tr><td>${n+1}</td><td><b>${esc(i.article||'—')}</b></td><td>${esc(i.barcode||'—')}</td><td>${esc(i.description||'')}</td><td>${esc(i.deliveryQty||'')}</td><td>${esc(i.receivedQty||'')}</td><td><b>${esc(i.claimQty||'')}</b></td><td>${esc(i.claimsReason||'—')}</td><td>฿${money.format(i.skuCost||0)}</td><td>฿${money.format(i.amount||0)}</td><td>${esc(i.remark||'')}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>#</th><th>Master</th><th>Article</th><th>Barcode</th><th>Description</th><th>Unit</th><th>Pack</th><th>Supplier</th><th>Segment</th><th>Weight</th><th>Delivery</th><th>Received</th><th>Claim</th><th>Reason</th><th>SKU Cost</th><th>Amount</th><th>Remark</th></tr></thead>
+      <tbody>${rows.map((i,n)=>{const m=i.master||{};return `<tr>
+        <td>${n+1}</td><td><span class="chip ${m.master_matched===false?'danger':''}">${m?'Master OK':'ตรวจ Master'}</span></td>
+        <td><b>${esc(i.article||'—')}</b></td><td>${esc(i.barcode||'—')}</td><td>${esc(i.description||'')}</td>
+        <td>${esc(m.prep_unit||i.prepUnit||'—')}</td><td>${esc(m.pack_size||i.packSize||'—')}</td><td>${esc(m.supplier_name||i.supplierName||'—')}</td>
+        <td>${esc(m.segment||m.seg_description||i.segDescription||'—')}</td><td>${esc(m.manage_weight||i.manageWeight||'—')}</td>
+        <td>${esc(i.deliveryQty||'')}</td><td>${esc(i.receivedQty||'')}</td><td><b>${esc(i.claimQty||'')}</b></td><td>${esc(i.claimsReason||'—')}</td>
+        <td>฿${money.format(i.skuCost||m.sku_cost||0)}</td><td>฿${money.format(i.amount||0)}</td><td>${esc(i.remark||'')}</td></tr>`}).join('')}</tbody>
     </table></div>
     <div class="v8-case-actions">
       ${editableStore ? '<button class="btn ghost" data-v8-edit-case>แก้ไขข้อมูล</button><button class="btn danger ghost" data-v8-delete-case>ลบ Ticket</button>' : ''}
-      ${review ? `<button class="btn primary" data-v8-process>นำข้อมูลเข้า Claim Workbench</button>
+      ${review ? `<button class="btn primary" data-v8-process>นำ Ticket เข้า Claim Workspace</button>
         <select id="v8CaseStatus"><option>UNDER_REVIEW</option><option>PENDING</option><option>ACCEPT</option><option>REJECT</option><option>PARTIAL</option><option>CLOSED</option></select>
         <button class="btn ghost" data-v8-status>อัปเดตสถานะ</button>` : ''}
     </div>
-    ${review ? `<div class="v8-return-box"><label>ส่งกลับ Store แก้ไข<textarea id="v8ReturnReason" rows="2" placeholder="ระบุข้อมูลที่ผิดหรือสิ่งที่ต้องแก้ให้ชัดเจน"></textarea></label><button class="btn warning" data-v8-return>ส่งกลับ Store</button></div>` : ''}
+    ${review ? `<div class="v8-return-box"><label>ส่งกลับ Store แก้ไข<textarea id="v8ReturnReason" rows="2" placeholder="ระบุข้อมูลที่ผิดหรือสิ่งที่ต้องแก้ให้ชัดเจน"></textarea></label><button class="btn warning" data-v8-return>ส่งกลับ Store พร้อมอัปเดตสถานะ</button></div>` : ''}
     <div class="chat">
       <div class="messages">${messages.map(x=>`<div class="msg ${x.sender_username===V8.user.username?'mine':''}"><b>${esc(x.sender_name||x.sender_username)} · ${esc(x.sender_side)}</b><p>${esc(x.message)}</p><small>${esc(x.created_at)}</small></div>`).join('')}</div>
-      ${!isTrainer() ? '<form id="v8ChatForm" class="chat-compose"><input id="v8ChatText" placeholder="พิมพ์ข้อความติดตาม Ticket…"><button class="btn primary">ส่ง</button></form>' : '<div class="muted">Trainer: ดูการสนทนาได้อย่างเดียว</div>'}
+      ${!isTrainer() ? '<form id="v8ChatForm" class="chat-compose"><input id="v8ChatText" placeholder="พิมพ์ข้อความติดตาม Ticket…"><button class="btn primary">ส่ง</button></form>' : '<div class="muted">Trainer: ดูข้อมูลและการสนทนาได้อย่างเดียว</div>'}
     </div>`;
 }
+
 function detail(k,v) { return `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`; }
 
 $('#caseContent')?.addEventListener('click', async e => {
@@ -850,9 +944,10 @@ function renderRegistryDialog(r) {
   const first = rows[0] || {};
   $('#v8RegistryTitle').textContent = `${r.claimNo} · Transport ${first.transport_no||'—'}`;
   $('#v8RegistryBody').innerHTML = `
-    <div class="v8-dialog-transport"><span>TRANSPORT</span><strong>${esc(first.transport_no||'—')}</strong><div>Store ${esc(first.store_code||'')}</div></div>
+    <div class="v8-dialog-transport"><span>TRANSPORT</span><strong>${esc(first.transport_no||'—')}</strong><div>Store ${esc(first.store_code||'')} ${esc(first.store_name||'')}</div></div>
+    <div class="v8-review-note"><b>ประวัติ Claim</b><span>${manage?'Admin สามารถแก้ไขหรือลบข้อมูลเดิมได้':'ข้อมูลหน้านี้เป็น Read only'}</span></div>
     <div class="table-wrap v8-reg-edit"><table>
-      <thead><tr><th>#</th><th>Transport</th><th>รับสินค้า</th><th>แจ้งเคลม</th><th>Article</th><th>Description</th><th>Claim Qty</th><th>SKU Cost</th><th>Amount</th><th>Reason</th><th>Status</th><th>WHO</th><th>Remark</th>${manage?'<th></th>':''}</tr></thead>
+      <thead><tr><th>#</th><th>Store</th><th>Store Name</th><th>Transport</th><th>รับสินค้า</th><th>แจ้งเคลม</th><th>Ship Date</th><th>Claim DC</th><th>Article</th><th>Barcode</th><th>Description</th><th>Delivery</th><th>Received</th><th>Claim</th><th>SKU Cost</th><th>Amount</th><th>Reason</th><th>Status</th><th>WHO</th><th>Cause</th><th>ROOT CAUSE</th><th>Check</th><th>Remark List</th><th>SC</th><th>Complet SC</th><th>Remark</th>${manage?'<th></th>':''}</tr></thead>
       <tbody>${rows.map((x,i)=>registryEditRow(x,i,manage)).join('')}</tbody>
     </table></div>
     ${manage ? '<div class="v8-form-actions"><button class="btn danger ghost" data-v8-reg-delete-case>ลบ Claim ทั้งชุด</button><button class="btn primary" data-v8-reg-save>บันทึกการแก้ไข</button></div>' : '<div class="muted">สิทธิ์ Read Only</div>'}`;
@@ -861,17 +956,30 @@ function registryEditRow(x,i,manage) {
   const dis = manage ? '' : 'disabled';
   return `<tr data-reg-id="${x.id}">
     <td>${i+1}</td>
+    <td><input class="rStore" value="${esc(x.store_code)}" ${dis}></td>
+    <td><input class="rStoreName wide" value="${esc(x.store_name)}" ${dis}></td>
     <td><input class="rTransport" value="${esc(x.transport_no)}" ${dis}></td>
     <td><input class="rReceived" type="date" value="${esc(x.received_date)}" ${dis}></td>
     <td><input class="rClaimDate" type="date" value="${esc(x.claim_date)}" ${dis}></td>
+    <td><input class="rShipDate" type="date" value="${esc(x.ship_date)}" ${dis}></td>
+    <td><input class="rClaimDc" value="${esc(x.claim_dc)}" ${dis}></td>
     <td><input class="rArticle" value="${esc(x.article)}" ${dis}></td>
+    <td><input class="rBarcode" value="${esc(x.barcode)}" ${dis}></td>
     <td><input class="rDescription wide" value="${esc(x.description)}" ${dis}></td>
+    <td><input class="rDelivery" type="number" step="0.001" value="${esc(x.delivery_qty)}" ${dis}></td>
+    <td><input class="rReceivedQty" type="number" step="0.001" value="${esc(x.received_qty)}" ${dis}></td>
     <td><input class="rQty" type="number" step="0.001" value="${esc(x.claim_qty)}" ${dis}></td>
     <td><input class="rSku" type="number" step="0.01" value="${esc(x.sku_cost)}" ${dis}></td>
     <td><input class="rAmount" type="number" step="0.01" value="${esc(x.amount_claim)}" ${dis}></td>
     <td><select class="rReason" ${dis}>${selectOptions('claims_reason',x.claims_reason)}</select></td>
-    <td><select class="rStatus" ${dis}>${['Accept','Pending','Reject'].map(v=>`<option ${v===x.update_status?'selected':''}>${v}</option>`).join('')}</select></td>
-    <td><select class="rWho" ${dis}>${['DC','TP','QC'].map(v=>`<option ${v===x.who?'selected':''}>${v}</option>`).join('')}</select></td>
+    <td><select class="rStatus" ${dis}>${selectOptions('status',x.update_status)}</select></td>
+    <td><select class="rWho" ${dis}>${selectOptions('who',x.who)}</select></td>
+    <td><select class="rCause" ${dis}>${selectOptions('cause_group',x.cause_group)}</select></td>
+    <td><select class="rRoot" ${dis}>${selectOptions('root_cause',x.root_cause)}</select></td>
+    <td><select class="rCheck" ${dis}>${selectOptions('check_result',x.check_result)}</select></td>
+    <td><select class="rRemarkList" ${dis}>${selectOptions('remark_list',x.remark_list)}</select></td>
+    <td><select class="rSc" ${dis}>${selectOptions('adjust_code',x.sc)}</select></td>
+    <td><select class="rCompleteSc" ${dis}>${selectOptions('status_sc',x.complete_sc)}</select></td>
     <td><input class="rRemark wide" value="${esc(x.remark)}" ${dis}></td>
     ${manage?'<td><button class="btn danger ghost small" data-v8-reg-delete-item>ลบรายการ</button></td>':''}
   </tr>`;
@@ -884,10 +992,14 @@ async function registryDialogAction(e) {
     const rows = $$('[data-reg-id]', $('#v8RegistryBody')).map(tr => ({
       id: Number(tr.dataset.regId),
       fields: {
-        transportNo: $('.rTransport',tr).value, receivedDate:$('.rReceived',tr).value, claimDate:$('.rClaimDate',tr).value,
-        article:$('.rArticle',tr).value, description:$('.rDescription',tr).value, claimQty:$('.rQty',tr).value,
+        storeCode:$('.rStore',tr).value, storeName:$('.rStoreName',tr).value, transportNo:$('.rTransport',tr).value,
+        receivedDate:$('.rReceived',tr).value, claimDate:$('.rClaimDate',tr).value, shipDate:$('.rShipDate',tr).value, claimDc:$('.rClaimDc',tr).value,
+        article:$('.rArticle',tr).value, barcode:$('.rBarcode',tr).value, description:$('.rDescription',tr).value,
+        deliveryQty:$('.rDelivery',tr).value, receivedQty:$('.rReceivedQty',tr).value, claimQty:$('.rQty',tr).value,
         skuCost:$('.rSku',tr).value, amountClaim:$('.rAmount',tr).value, claimsReason:$('.rReason',tr).value,
-        updateStatus:$('.rStatus',tr).value, who:$('.rWho',tr).value, remark:$('.rRemark',tr).value
+        updateStatus:$('.rStatus',tr).value, who:$('.rWho',tr).value, causeGroup:$('.rCause',tr).value, rootCause:$('.rRoot',tr).value,
+        checkResult:$('.rCheck',tr).value, remarkList:$('.rRemarkList',tr).value, sc:$('.rSc',tr).value, completeSc:$('.rCompleteSc',tr).value,
+        remark:$('.rRemark',tr).value
       }
     }));
     busy(true,'กำลังบันทึก Claim Registry');
@@ -941,7 +1053,7 @@ async function addOptionV8(e) {
   e.preventDefault();
   try {
     const r=await api('/api/v8/options',{method:'POST',body:{category:$('#v8OptionCategory').value,value:$('#v8OptionValue').value,sortOrder:$('#v8OptionOrder').value}});
-    V8.optionRows=r.data||[]; V8.options=r.grouped||{}; $('#v8OptionValue').value=''; renderOptionRows(); toast('เพิ่ม Dropdown แล้ว','','success');
+    V8.optionRows=r.data||[]; V8.options=r.grouped||{}; $('#v8OptionValue').value=''; renderOptionRows(); await refreshOptions(); toast('เพิ่ม Dropdown แล้ว','ตัวเลือกถูกอัปเดตให้ทุกหน้าที่เกี่ยวข้อง','success');
   } catch(err){toast('เพิ่มไม่ได้',err.message,'error')}
 }
 async function optionTableAction(e) {
@@ -950,11 +1062,11 @@ async function optionTableAction(e) {
   if(e.target.matches('[data-opt-save]')){
     try{
       const r=await api('/api/v8/options/'+id,{method:'PATCH',body:{category:$('.oCat',tr).value,value:$('.oVal',tr).value,sortOrder:$('.oOrder',tr).value,active:$('.oActive',tr).checked}});
-      V8.optionRows=r.data||[];V8.options=r.grouped||{};renderOptionRows();toast('บันทึก Dropdown แล้ว','','success');
+      V8.optionRows=r.data||[];V8.options=r.grouped||{};renderOptionRows();await refreshOptions();toast('บันทึก Dropdown แล้ว','ตัวเลือกถูกอัปเดตให้ทุกหน้าที่เกี่ยวข้อง','success');
     }catch(err){toast('บันทึกไม่ได้',err.message,'error')}
   } else if(e.target.matches('[data-opt-delete]')){
     if(!confirm('ลบตัวเลือกนี้หรือไม่?'))return;
-    try{const r=await api('/api/v8/options/'+id,{method:'DELETE'});V8.optionRows=r.data||[];V8.options=r.grouped||{};renderOptionRows();toast('ลบ Dropdown แล้ว','','success')}catch(err){toast('ลบไม่ได้',err.message,'error')}
+    try{const r=await api('/api/v8/options/'+id,{method:'DELETE'});V8.optionRows=r.data||[];V8.options=r.grouped||{};renderOptionRows();await refreshOptions();toast('ลบ Dropdown แล้ว','ตัวเลือกถูกอัปเดตให้ทุกหน้าที่เกี่ยวข้อง','success')}catch(err){toast('ลบไม่ได้',err.message,'error')}
   }
 }
 

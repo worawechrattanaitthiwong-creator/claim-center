@@ -43,14 +43,6 @@ export default {
         return deleteOption(env, Number(legacyOptionDelete[1]), user);
       }
 
-      // Master Store import must follow the actual Claim CCD MasterStore columns.
-      if (url.pathname === '/api/master/stores' && method === 'POST') {
-        const user = await requireUser(request, env);
-        checkOrigin(request, url);
-        admin(user);
-        return saveStoreMasterAligned(request, env, user);
-      }
-
       // Harden V7 Store routes: DC/Trainer cannot impersonate Store and Trainer is read-only.
       if (url.pathname === '/api/v7/dc/queue' && method === 'GET') {
         const user = await requireUser(request, env);
@@ -251,14 +243,14 @@ async function searchArticles(env, url) {
   if (q.length < 1) return json({ status: 'success', data: [] });
   const like = `%${q}%`;
   const r = await env.DB.prepare(`
-    SELECT a.article,a.barcode,a.description,a.item_value sku_cost,a.seg_description,a.manage_weight,a.eggs,a.raw_json
+    SELECT a.article,a.barcode,a.description,a.item_value sku_cost,a.seg_description,a.manage_weight,a.eggs
     FROM master_articles a
     JOIN master_article_state s ON s.id=1 AND a.batch_id=s.active_batch_id
     WHERE a.article LIKE ? OR a.barcode LIKE ? OR a.description LIKE ?
     ORDER BY CASE WHEN a.article=? THEN 0 WHEN a.barcode=? THEN 1 ELSE 2 END, a.description
-    LIMIT 40
+    LIMIT 30
   `).bind(like, like, like, q, q).all();
-  return json({ status: 'success', data: (r.results || []).map(masterArticleView) });
+  return json({ status: 'success', data: r.results || [] });
 }
 
 async function storeInfo(env, url, user) {
@@ -266,42 +258,9 @@ async function storeInfo(env, url, user) {
   const code = isStore(user) ? user.store_code : requested;
   if (!code) return json({ status: 'error', message: 'กรุณาระบุ Store Code' }, 422);
   if (!isStore(user)) viewStore(user);
-  const s = await env.DB.prepare('SELECT store_code,store_name,format_type,store_type,check_100,raw_json,updated_at FROM master_stores WHERE store_code=?').bind(code).first();
+  const s = await env.DB.prepare('SELECT store_code,store_name,format_type,store_type,check_100,updated_at FROM master_stores WHERE store_code=?').bind(code).first();
   if (!s) return json({ status: 'error', message: 'ไม่พบ Store ใน Master Store' }, 404);
-  return json({ status: 'success', data: masterStoreView(s) });
-}
-
-async function saveStoreMasterAligned(req, env, user) {
-  const b = await body(req, 10 * 1024 * 1024);
-  const rows = Array.isArray(b.records) ? b.records : [];
-  if (rows.length > 1000) return json({ status:'error', message:'อัปโหลด Master Store ครั้งละไม่เกิน 1,000 สาขา' }, 413);
-  const t = now();
-  let count = 0;
-  for (let i = 0; i < rows.length; i += 40) {
-    const statements = [], codes = [];
-    for (const raw of rows.slice(i, i + 40)) {
-      const x = storeMasterImportView(raw);
-      if (!x.storeCode) continue;
-      statements.push(env.DB.prepare(`
-        INSERT INTO master_stores(store_code,store_name,format_type,store_type,check_100,raw_json,updated_at)
-        VALUES(?,?,?,?,?,?,?)
-        ON CONFLICT(store_code) DO UPDATE SET
-          store_name=excluded.store_name,format_type=excluded.format_type,store_type=excluded.store_type,
-          check_100=excluded.check_100,raw_json=excluded.raw_json,updated_at=excluded.updated_at
-      `).bind(x.storeCode,x.storeName,x.formatType,x.storeType,x.check100,JSON.stringify(raw),t));
-      codes.push(x.storeCode); count++;
-    }
-    if (statements.length) await env.DB.batch(statements);
-    if (codes.length) {
-      await env.DB.prepare(`
-        UPDATE master_stores SET check_100=COALESCE(
-          (SELECT flag FROM master_check100 c WHERE c.store_code=master_stores.store_code),check_100,''
-        ) WHERE store_code IN (${marks(codes.length)})
-      `).bind(...codes).run();
-    }
-  }
-  await audit(env,user.username,'UPLOAD_MASTER_STORE_ALIGNED','MasterStore','','','',`rows=${count}`);
-  return json({ status:'success', count, message:'อัปเดต Master Store แล้ว' });
+  return json({ status: 'success', data: s });
 }
 
 async function storeCaseCreate(req, env, user) {
@@ -312,8 +271,6 @@ async function storeCaseCreate(req, env, user) {
   const store = await env.DB.prepare('SELECT * FROM master_stores WHERE store_code=?').bind(storeCode).first();
   if (!store) return json({ status: 'error', message: 'Store Code ไม่พบใน Master Store' }, 422);
   const payload = await normalizeStorePayload(env, b, storeCode, store);
-  const duplicate = await env.DB.prepare('SELECT id,case_no,status,store_code FROM store_cases WHERE transport_no=? LIMIT 1').bind(payload.transportNo).first();
-  if (duplicate) return json({ status:'duplicate', message:`Transport ${payload.transportNo} มี Ticket ${duplicate.case_no} อยู่แล้ว`, existing:duplicate }, 409);
   const caseNo = await nextStoreCaseNo(env);
   const t = now();
   const r = await env.DB.prepare(`
@@ -347,8 +304,6 @@ async function storeCaseUpdate(req, env, id, user) {
   const store = await env.DB.prepare('SELECT * FROM master_stores WHERE store_code=?').bind(storeCode).first();
   if (!store) return json({ status: 'error', message: 'Store Code ไม่พบใน Master Store' }, 422);
   const payload = await normalizeStorePayload(env, { ...caseToPayload(c), ...b }, storeCode, store);
-  const duplicate = await env.DB.prepare('SELECT id,case_no FROM store_cases WHERE transport_no=? AND id<>? LIMIT 1').bind(payload.transportNo,id).first();
-  if (duplicate) return json({ status:'duplicate', message:`Transport ${payload.transportNo} มี Ticket ${duplicate.case_no} อยู่แล้ว`, existing:duplicate }, 409);
   const t = now();
   const nextStatus = storeOwn ? 'SUBMITTED' : text(b.status || c.status).toUpperCase();
   await env.DB.prepare(`
@@ -421,12 +376,11 @@ async function storeCaseGet(env, id, user) {
   const c = await env.DB.prepare('SELECT * FROM store_cases WHERE id=?').bind(id).first();
   if (!c) return json({ status: 'error', message: 'ไม่พบ Ticket' }, 404);
   accessStoreCase(user, c);
-  const items = await env.DB.prepare('SELECT * FROM store_case_items WHERE store_case_id=? ORDER BY line_no,id').bind(id).all();
+  let items = await env.DB.prepare('SELECT * FROM store_case_items WHERE store_case_id=? ORDER BY line_no,id').bind(id).all();
   let normalized = (items.results || []).map(itemFromDb);
   if (!normalized.length) normalized = normalizeLegacyItems(safeJson(c.items_json));
-  normalized = await enrichStoreItemsFromMaster(env, normalized);
-  const store = await env.DB.prepare('SELECT store_code,store_name,format_type,store_type,check_100,raw_json,updated_at FROM master_stores WHERE store_code=?').bind(c.store_code).first();
-  return json({ status: 'success', data: { ...c, items: normalized, item_count: normalized.length, masterStore: store ? masterStoreView(store) : null } });
+  const store = await env.DB.prepare('SELECT store_code,store_name,format_type,store_type,check_100,updated_at FROM master_stores WHERE store_code=?').bind(c.store_code).first();
+  return json({ status: 'success', data: { ...c, items: normalized, item_count: normalized.length, masterStore: store || null } });
 }
 
 async function storeCasesList(env, url, user) {
@@ -468,7 +422,7 @@ async function dcQueue(env, url) {
   `).bind(...params).all();
   const data = (r.results || []).map(c => ({ ...c, item_count: Number(c.normalized_item_count || 0) || legacyItemCount(c.items_json) }));
   const summary = {
-    tickets: new Set(data.map(c => text(c.transport_no) || `CASE:${c.id}`)).size,
+    tickets: data.length,
     items: data.reduce((s, c) => s + Number(c.item_count || 0), 0),
     submitted: data.filter(c => c.status === 'SUBMITTED').length,
     returned: data.filter(c => c.status === 'RETURNED_TO_STORE').length,
@@ -490,7 +444,7 @@ async function storeSummary(env, url, user) {
   return json({
     status: 'success', month: ym, storeCode: store,
     data: {
-      tickets: new Set(cases.map(c => text(c.transport_no) || `CASE:${c.id}`)).size,
+      tickets: cases.length,
       cases: cases.length,
       items: itemCounts.reduce((a,b) => a+b, 0),
       amount: roundMoney(cases.reduce((s,c) => s + num(c.amount), 0)),
@@ -545,15 +499,12 @@ async function resolveStoreItem(env, raw, lineNo) {
   const reason = text(raw.claimsReason || raw.reason);
   if (reason && !(await optionExists(env, 'claims_reason', reason))) throw pub(422, `รายการ ${lineNo}: สาเหตุการเคลมต้องเลือกจาก Dropdown`);
   const sku = roundMoney(master.item_value);
-  const masterView = masterArticleView(master);
   return {
     lineNo, article: text(master.article), barcode: text(master.barcode), description: text(master.description),
     deliveryQty, receivedQty, claimQty, claimsReason: reason,
     skuCost: sku, amount: roundMoney(sku * num(claimQty)), remark: text(raw.remark),
     segDescription: text(master.seg_description), manageWeight: text(master.manage_weight), eggs: text(master.eggs),
-    supplierName:masterView.supplier_name, supplierCode:masterView.supplier_code, prepUnit:masterView.prep_unit,
-    packSize:masterView.pack_size, masterStatus:masterView.master_status, segment:masterView.segment,
-    subDept:masterView.sub_dept, pickingUnit:masterView.picking_unit, masterMatched: true
+    masterMatched: true
   };
 }
 
@@ -592,12 +543,12 @@ async function registryGet(env, claimNo, user) {
 }
 
 const REGISTRY_FIELDS = {
-  storeCode:'store_code', storeName:'store_name', claimDc:'claim_dc', transportNo:'transport_no', receivedDate:'received_date', claimDate:'claim_date',
-  vehicleNo:'vehicle_no', driver:'driver', dnNo:'dn_no', route:'route', palletNo:'pallet_no', basketNo:'basket_no',
-  article:'article', barcode:'barcode', description:'description', deliveryQty:'delivery_qty', receivedQty:'received_qty', claimQty:'claim_qty',
-  claimsReason:'claims_reason', amountClaim:'amount_claim', shipDate:'ship_date', updateStatus:'update_status', who:'who', formatType:'format_type',
-  referenceNo:'reference_no', causeGroup:'cause_group', rootCause:'root_cause', checkResult:'check_result', remarkList:'remark_list',
-  sc:'sc', completeSc:'complete_sc', remark:'remark', skuCost:'sku_cost', segDescription:'seg_description', manageWeight:'manage_weight', eggs:'eggs'
+  transportNo:'transport_no', receivedDate:'received_date', claimDate:'claim_date', vehicleNo:'vehicle_no', driver:'driver',
+  dnNo:'dn_no', route:'route', palletNo:'pallet_no', basketNo:'basket_no', article:'article', barcode:'barcode',
+  description:'description', deliveryQty:'delivery_qty', receivedQty:'received_qty', claimQty:'claim_qty',
+  claimsReason:'claims_reason', amountClaim:'amount_claim', updateStatus:'update_status', who:'who',
+  causeGroup:'cause_group', rootCause:'root_cause', checkResult:'check_result', remarkList:'remark_list',
+  remark:'remark', skuCost:'sku_cost'
 };
 
 async function registryUpdate(req, env, claimNo, user) {
@@ -706,12 +657,7 @@ async function backupRestore(req, env, user) {
 }
 
 async function restoreStoreCase(env, c, user, adminMode) {
-  const caseNo = text(c.case_no), transport = text(c.transport_no);
-  const existing = await env.DB.prepare(`
-    SELECT * FROM store_cases
-    WHERE case_no=? OR (?<>'' AND transport_no=?)
-    ORDER BY CASE WHEN case_no=? THEN 0 ELSE 1 END,id LIMIT 1
-  `).bind(caseNo,transport,transport,caseNo).first();
+  const existing = await env.DB.prepare('SELECT * FROM store_cases WHERE case_no=?').bind(text(c.case_no)).first();
   if (existing) {
     if (!adminMode && !STORE_EDITABLE.has(existing.status)) return 0;
     const status = adminMode ? text(c.status || existing.status) : 'SUBMITTED';
@@ -772,7 +718,7 @@ async function adminPurge(req, env, user) {
     await env.DB.batch([
       env.DB.prepare("DELETE FROM references_ledger WHERE claim_no IN (SELECT claim_no FROM claims WHERE source_channel='STORE')"),
       env.DB.prepare("DELETE FROM claims WHERE source_channel='STORE'"),
-      env.DB.prepare('DELETE FROM notifications WHERE store_case_id IS NOT NULL'),
+      env.DB.prepare('DELETE FROM notifications'),
       env.DB.prepare('DELETE FROM case_messages'),
       env.DB.prepare('DELETE FROM store_case_items'),
       env.DB.prepare('DELETE FROM store_cases')
@@ -805,68 +751,6 @@ async function adminPurge(req, env, user) {
   }
   await audit(env, user.username, 'ADMIN_PURGE_V8', selected.join(','), '', '', '', JSON.stringify(counts));
   return json({ status: 'success', scopes: selected, counts, note: 'บัญชีผู้ใช้และ Audit Log ไม่ถูกลบ' });
-}
-
-function storeMasterImportView(raw) {
-  if (Array.isArray(raw)) {
-    return {
-      storeCode:digits(raw[0]), storeType:text(raw[1]), profile:text(raw[2]), status:text(raw[3]),
-      storeName:text(raw[4] || raw[5] || raw[1]), englishName:text(raw[5]), formatType:text(raw[20] || raw[12] || raw[1]),
-      check100:text(raw[22] || '')
-    };
-  }
-  const obj = raw && typeof raw === 'object' ? raw : {};
-  return {
-    storeCode:digits(obj.storeCode || obj['Location ID'] || obj.locationId),
-    storeName:text(obj.storeName || obj['Thai name'] || obj.thaiName || obj['English name'] || obj.englishName),
-    storeType:text(obj.storeType || obj['Store type']),
-    profile:text(obj.profile || obj['Store profile by Symphony']), status:text(obj.status || obj['Store Status']),
-    englishName:text(obj.englishName || obj['English name']), formatType:text(obj.formatType || obj.Lanes || obj['Zone TH'] || obj['Store type']),
-    check100:text(obj.check100 || '')
-  };
-}
-
-function masterStoreView(row) {
-  const raw = safeJson(row.raw_json);
-  const a = Array.isArray(raw) ? raw : [];
-  const value = (i, fallback='') => text(a[i] ?? fallback);
-  return {
-    store_code:digits(row.store_code), store_name:text(row.store_name || value(4) || value(5) || value(1)),
-    format_type:text(row.format_type || value(20) || value(12)), store_type:text(row.store_type || value(1)),
-    check_100:text(row.check_100), updated_at:text(row.updated_at),
-    location_id:value(0,row.store_code), store_profile:value(2), store_status:value(3), thai_name:value(4,row.store_name), english_name:value(5),
-    block:value(6), street:value(7), city:value(8), province_th:value(9), province:value(10), region:value(11), zone_th:value(12), sub_zone:value(13),
-    postal_code:value(14), latitude:value(15), longitude:value(16), max_truck_type:value(17), group:value(18), lanes_group:value(19), lanes:value(20,row.format_type), via_hub_location_id:value(21)
-  };
-}
-
-function masterArticleView(row) {
-  const raw = safeJson(row.raw_json);
-  const a = Array.isArray(raw) ? raw : [];
-  const value = (i, fallback='') => text(a[i] ?? fallback);
-  return {
-    article:text(row.article || value(0)), barcode:text(row.barcode || value(3)).replaceAll("'",''), description:text(row.description || value(4)),
-    sku_cost:roundMoney(row.sku_cost ?? row.item_value ?? value(35)), item_value:roundMoney(row.sku_cost ?? row.item_value ?? value(35)),
-    supplier_code:value(5), supplier_name:value(6), prep_unit:value(7), pack_size:value(8), working_mode:value(9), master_status:value(10),
-    manage_weight:text(row.manage_weight || value(11)), unit_management:value(12), net_weight:value(13), sku_pu:value(14),
-    logistic_family:value(36), sub_family:value(37), segment:value(38), seg_description:text(row.seg_description || value(39)), sub_dept:value(40),
-    picking_address:value(41), pivot_address:value(42), picking_unit:value(43), eggs:text(row.eggs), master_matched:true
-  };
-}
-
-async function enrichStoreItemsFromMaster(env, items) {
-  if (!Array.isArray(items) || !items.length) return [];
-  const active = await env.DB.prepare('SELECT active_batch_id FROM master_article_state WHERE id=1').first();
-  if (!active?.active_batch_id) return items;
-  const articles = [...new Set(items.map(x => text(x.article)).filter(Boolean))].slice(0,100);
-  if (!articles.length) return items;
-  const r = await env.DB.prepare(`SELECT article,barcode,description,item_value sku_cost,seg_description,manage_weight,eggs,raw_json FROM master_articles WHERE batch_id=? AND article IN (${marks(articles.length)})`)
-    .bind(active.active_batch_id, ...articles).all();
-  const map = new Map((r.results || []).map(x => [text(x.article), masterArticleView(x)]));
-  return items.map(x => {
-    const master = map.get(text(x.article)) || null;
-    return master ? { ...x, master, segDescription:master.seg_description, manageWeight:master.manage_weight, eggs:master.eggs } : { ...x, master:null };
-  });
 }
 
 async function optionExists(env, category, value) {

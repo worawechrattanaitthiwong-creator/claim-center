@@ -87,18 +87,3 @@ html[data-theme="dark"] .v8-return-note{background:rgba(167,99,0,.15)}
   .v8-return-box{grid-template-columns:1fr}.v8-return-box textarea{min-width:0}
   .v8-purge-grid{grid-template-columns:1fr}.v8-purge-grid .v8-all{grid-column:auto}
 }
-
-/* Latest workflow alignment: Master-connected Store entry and detailed verification */
-.v8-master-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:14px}
-.v8-master-strip>div{display:grid;gap:3px;padding:10px 12px;border:1px solid var(--v8-line);border-radius:12px;background:var(--v8-soft)}
-.v8-master-strip span{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#778297}.v8-master-strip b{font-size:12px;color:var(--v8-ink);word-break:break-word}
-.v8-master-review{margin:12px 0 16px;padding:14px;border:1px solid var(--v8-line);border-radius:14px;background:color-mix(in srgb,var(--v8-soft) 70%,transparent)}
-.v8-review-note{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:11px 14px;margin:0 0 14px;border:1px solid #cdd9f5;border-radius:12px;background:#f4f7ff;color:#263b68}
-.v8-review-note b{white-space:nowrap}.v8-review-note span{font-size:12px;color:#5b6d91;text-align:right}
-.v8-transport-filter{grid-template-columns:minmax(260px,1fr) auto auto!important;align-items:end;margin:0 0 16px}.v8-transport-filter label{display:grid;gap:6px}.v8-transport-filter label span{font-size:11px;font-weight:800;color:var(--muted)}
-.v8-item-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.v8-product-field{grid-column:span 2}.v8-item-grid .span-2{grid-column:span 2}
-.v8-review-table table{min-width:2200px}.v8-reg-edit table{min-width:3400px}
-html[data-theme="dark"] .v8-master-strip>div,html[data-theme="dark"] .v8-master-review{background:rgba(255,255,255,.04)}
-html[data-theme="dark"] .v8-review-note{background:rgba(39,89,215,.12);color:#d8e3ff;border-color:rgba(89,129,229,.35)}
-@media(max-width:900px){.v8-master-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.v8-review-note{display:grid}.v8-review-note span{text-align:left}.v8-transport-filter{grid-template-columns:1fr!important}}
-@media(max-width:560px){.v8-master-strip{grid-template-columns:1fr}.v8-item-grid{grid-template-columns:1fr}.v8-product-field,.v8-item-grid .span-2{grid-column:auto}}
