@@ -1,0 +1,51 @@
+diff --git a/worker/v8-runtime.js b/worker/v8-runtime.js
+--- a/worker/v8-runtime.js
++++ b/worker/v8-runtime.js
+@@ -1,6 +1,44 @@
+ import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+ import v8 from './v8-entry.js';
+ import plus from './v8-plus.js';
++
++const EVIDENCE_MAX_BYTES = 140000;
++const EVIDENCE_TTL_MS = 35 * 24 * 60 * 60 * 1000;
++
++// Free-tier evidence storage. One Durable Object is used per calendar day so
++// evidence can expire automatically and storage remains bounded without R2.
++export class EvidenceStore {
++  constructor(ctx) {
++    this.storage = ctx.storage;
++  }
++
++  async fetch(request) {
++    const url = new URL(request.url);
++    const key = url.searchParams.get('key') || '';
++    if (!key) return new Response('Missing evidence key', { status: 400 });
++    const blobKey = `blob:${key}`;
++    const method = request.method.toUpperCase();
++    if (method === 'PUT') {
++      const data = await request.arrayBuffer();
++      if (data.byteLength > EVIDENCE_MAX_BYTES) return new Response('Evidence too large', { status: 413 });
++      await this.storage.put(blobKey, data);
++      const targetAlarm = Date.now() + EVIDENCE_TTL_MS;
++      const currentAlarm = await this.storage.getAlarm();
++      if (!currentAlarm || currentAlarm < targetAlarm) await this.storage.setAlarm(targetAlarm);
++      return new Response(null, { status: 204 });
++    }
++    if (method === 'GET') {
++      const data = await this.storage.get(blobKey);
++      return data ? new Response(data) : new Response('Evidence not found', { status: 404 });
++    }
++    if (method === 'DELETE') {
++      await this.storage.delete(blobKey);
++      return new Response(null, { status: 204 });
++    }
++    return new Response('Method not allowed', { status: 405 });
++  }
++
++  async alarm() {
++    await this.storage.deleteAll();
++  }
++}
+ 
+ const COOKIE = 'claim_session';
+ const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-observerfix1"></script>';
