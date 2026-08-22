@@ -36,6 +36,9 @@ jobs:
           node-version: '22'
       - name: Validate assembled application
         run: npm install --no-package-lock --ignore-scripts && npm run check && npm test
+      - name: Remove obsolete temporary branch
+        shell: bash
+        run: git push origin --delete noop-do-not-create || true
       - name: Commit assembled application
         shell: bash
         run: |
