@@ -1,0 +1,29 @@
+diff --git a/site/v8-plus.js b/site/v8-plus.js
+--- a/site/v8-plus.js
++++ b/site/v8-plus.js
+@@ -235,7 +235,7 @@
+   <div class="plus-section-head"><div><span class="eyebrow">QUALITY & EVIDENCE</span><h3>ตรวจข้อมูลและหลักฐาน</h3></div><span class="plus-sla ${escPlus(d.age?.slaState||'ok')}">${slaLabel(d.age?.slaState)} · ${Number(d.age?.ageHours||0).toFixed(1)} ชม.</span></div>
+   ${warningBlock(warnings.map(x=>x.message))}
+-  <div class="plus-evidence-head"><b>รูปหลักฐาน ${evidence.length} / 5</b><small>${d.evidenceEnabled?'R2 Evidence Storage':'R2 ยังไม่ได้เชื่อมกับ Worker'}</small></div>
++  <div class="plus-evidence-head"><b>รูปหลักฐาน ${evidence.length} / 5</b><small>${d.evidenceEnabled?`หลักฐานพร้อมใช้งาน · เก็บ ${d.evidenceRetentionDays||35} วัน`:'Evidence Storage ยังไม่พร้อม'}</small></div>
+   <div class="plus-gallery">${evidence.map(x=>`<figure><a href="/api/v8/plus/evidence/${x.id}" target="_blank" rel="noopener"><img loading="lazy" src="/api/v8/plus/evidence/${x.id}" alt="${escPlus(x.file_name)}"></a><figcaption><b>${escPlus(x.file_name)}</b><small>${escPlus(x.uploaded_by)} · ${escPlus(x.uploaded_at)}</small>${canEditEvidence?`<button type="button" class="link danger" data-plus-delete-evidence="${x.id}">ลบ</button>`:''}</figcaption></figure>`).join('')||'<div class="muted">ยังไม่มีรูปหลักฐาน</div>'}</div>
+@@ -249,14 +249,15 @@
+ async function deleteEvidence(id){if(!confirm('ลบรูปหลักฐานนี้หรือไม่?'))return;try{await apiPlus(`/api/v8/plus/evidence/${id}`,{method:'DELETE'});plusToast('รูปหลักฐาน','ลบแล้ว','success');loadCaseContext(Plus.activeCaseId);}catch(e){plusToast('ลบรูปไม่ได้',e.message,'error');}}
+ 
+ async function compressImage(file){
+-  if(file.size<=650000&&['image/jpeg','image/webp'].includes(file.type))return file;
+-  const bmp=await createImageBitmap(file);let max=1600,quality=.78,blob;
+-  for(let attempt=0;attempt<4;attempt++){
++  if(file.size<=125000&&['image/jpeg','image/webp','image/png'].includes(file.type))return file;
++  const bmp=await createImageBitmap(file);let max=1280,quality=.72,blob;
++  for(let attempt=0;attempt<7;attempt++){
+     const scale=Math.min(1,max/Math.max(bmp.width,bmp.height)),w=Math.max(1,Math.round(bmp.width*scale)),h=Math.max(1,Math.round(bmp.height*scale));
+     const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(bmp,0,0,w,h);
+-    blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));
+-    if(blob&&blob.size<=1150000)break;quality-=.12;max=Math.round(max*.82);
++    blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
++    if(blob&&blob.size<=125000)break;quality=Math.max(.42,quality-.08);max=Math.max(720,Math.round(max*.86));
+   }
+-  bmp.close?.();if(!blob)throw new Error('ไม่สามารถบีบอัดรูปได้');return new File([blob],file.name.replace(/\.[^.]+$/,'.jpg'),{type:'image/jpeg',lastModified:Date.now()});
++  bmp.close?.();if(!blob)throw new Error('ไม่สามารถบีบอัดรูปได้');if(blob.size>140000)throw new Error('รูปยังใหญ่เกิน 140 KB หลังบีบอัด');return new File([blob],file.name.replace(/\.[^.]+$/,'.webp'),{type:'image/webp',lastModified:Date.now()});
+ }
