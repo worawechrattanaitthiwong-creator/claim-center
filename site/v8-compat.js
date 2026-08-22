@@ -279,27 +279,42 @@ function installSaveOverride() {
 }
 
 function installReliableLogin() {
-  const form = q('#loginForm');
-  if (!form || form.dataset.compatLogin === '1') return;
+  const oldForm = q('#loginForm');
+  if (!oldForm || oldForm.dataset.compatLogin === '1') return;
+
+  // Replace the form once so legacy and new submit handlers cannot compete with each other.
+  // The inputs keep the same IDs/names, therefore autofill and the rest of the page still work.
+  const form = oldForm.cloneNode(true);
   form.dataset.compatLogin = '1';
+  oldForm.replaceWith(form);
+
+  const toggle = q('#togglePass');
+  if (toggle) toggle.onclick = () => {
+    const input = q('#loginPassword');
+    if (input) input.type = input.type === 'password' ? 'text' : 'password';
+  };
+
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    e.stopImmediatePropagation();
     const username = q('#loginUsername')?.value?.trim() || '';
     const password = q('#loginPassword')?.value || '';
     if (!username || !password) return flash('เข้าสู่ระบบ', 'กรอก Username และ Password', 'error');
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
     setBusy(true, 'กำลังเข้าสู่ระบบ', 'กำลังตรวจสอบบัญชี');
     try {
       await jsonFetch('/api/auth/login', { method:'POST', body:{ username, password } });
-      await jsonFetch('/api/auth/me');
+      const me = await jsonFetch('/api/auth/me');
+      if (!me?.user?.username) throw new Error('ไม่สามารถยืนยัน Session หลังเข้าสู่ระบบ');
       sessionStorage.setItem('claimCenterCompatFlash', 'เข้าสู่ระบบสำเร็จ');
-      location.reload();
+      location.replace(location.pathname || '/');
     } catch (e2) {
       flash('เข้าสู่ระบบไม่สำเร็จ', e2.message, 'error');
     } finally {
+      if (submit) submit.disabled = false;
       setBusy(false);
     }
-  }, true);
+  });
 }
 
 function rebrandDecisionMaster() {
