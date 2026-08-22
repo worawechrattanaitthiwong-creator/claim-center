@@ -1,11 +1,9 @@
-diff --git a/worker/v8-runtime.js b/worker/v8-runtime.js
 --- a/worker/v8-runtime.js
 +++ b/worker/v8-runtime.js
-@@ -1,6 +1,44 @@
- import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+@@ -2,5 +2,46 @@
  import v8 from './v8-entry.js';
  import plus from './v8-plus.js';
-+
+ 
 +const EVIDENCE_MAX_BYTES = 140000;
 +const EVIDENCE_TTL_MS = 35 * 24 * 60 * 60 * 1000;
 +
@@ -46,6 +44,6 @@ diff --git a/worker/v8-runtime.js b/worker/v8-runtime.js
 +    await this.storage.deleteAll();
 +  }
 +}
- 
++
  const COOKIE = 'claim_session';
  const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-observerfix1"></script>';
