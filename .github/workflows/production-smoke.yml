@@ -10,34 +10,36 @@ permissions:
 jobs:
   verify-production:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: Wait for Collaboration V7
+      - name: Wait for Store/DC Workflow V8
         shell: bash
         run: |
           set -euo pipefail
           BASE="https://claim-center.worawech-rattanaitthiwong.workers.dev"
           ok=0
-          for i in $(seq 1 40); do
+          for i in $(seq 1 30); do
             BUILD=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/build" || true)
             HEALTH=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/health" || true)
             HTML=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/" || true)
-            APP=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/app.js?v=smoke-v7" || true)
-            if echo "$BUILD" | grep -q '2026-08-22-collaboration-v7' \
+            V8=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8.js?v=smoke-v8" || true)
+            if echo "$BUILD" | grep -q '2026-08-22-store-dc-workflow-v8' \
               && echo "$HEALTH" | grep -q '"status":"success"' \
-              && echo "$HTML" | grep -q 'Claim Center · Collaboration V7' \
+              && echo "$HTML" | grep -q 'Claim Center · Store & DC Operations' \
               && echo "$HTML" | grep -q 'Claim Workbench' \
               && echo "$HTML" | grep -q 'Store Queue' \
-              && echo "$HTML" | grep -q 'Export Studio' \
-              && echo "$APP" | grep -q 'syncReference' \
-              && echo "$APP" | grep -q 'submitStoreCase'; then
-              echo "Production V7 is live"
+              && echo "$HTML" | grep -q 'v8.js' \
+              && ! echo "$HTML" | grep -q 'CCD columns A:AQ' \
+              && echo "$V8" | grep -q '1 Transport = 1 Ticket' \
+              && echo "$V8" | grep -q 'Backup & Restore' \
+              && echo "$V8" | grep -q 'Dropdown Settings'; then
+              echo "Production V8 is live"
               echo "$BUILD"
               ok=1
               break
             fi
-            echo "Attempt $i: not ready: ${BUILD:0:140}"
-            sleep 15
+            echo "Attempt $i: V8 not ready: ${BUILD:0:180}"
+            sleep 10
           done
           test "$ok" = "1"
       - name: Verify auth protection
