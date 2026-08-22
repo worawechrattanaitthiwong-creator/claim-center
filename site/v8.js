@@ -101,17 +101,23 @@ function installCorporateUi() {
   if (build) build.textContent = 'Online';
   const loginBuild = $('#loginBuild');
   if (loginBuild) {
-    const obs = new MutationObserver(() => {
-      if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent = 'พร้อมใช้งาน';
-    });
+    const syncLoginBuild = () => {
+      const current = loginBuild.textContent || '';
+      if (/ไม่สามารถ/.test(current)) return;
+      if (current !== 'พร้อมใช้งาน') loginBuild.textContent = 'พร้อมใช้งาน';
+    };
+    const obs = new MutationObserver(syncLoginBuild);
     obs.observe(loginBuild, { childList:true, characterData:true, subtree:true });
-    setTimeout(() => { if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent='พร้อมใช้งาน'; }, 300);
+    setTimeout(syncLoginBuild, 300);
   }
   const preview = $('#exportPreview');
   if (preview) {
-    new MutationObserver(() => {
-      preview.textContent = preview.textContent.replace(/\s*·\s*43 columns/gi, '');
-    }).observe(preview, { childList:true, characterData:true, subtree:true });
+    const scrubPreview = () => {
+      const before = preview.textContent || '';
+      const after = before.replace(/\s*·\s*43 columns/gi, '');
+      if (after !== before) preview.textContent = after;
+    };
+    new MutationObserver(scrubPreview).observe(preview, { childList:true, characterData:true, subtree:true });
   }
   const storeSwitch = $('#portalSwitch [data-mode="store"]');
   if (storeSwitch) storeSwitch.textContent = 'Store Data';
