@@ -17,28 +17,37 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://claim-center.worawech-rattanaitthiwong.workers.dev"
+          EVENT_NAME="${{ github.event_name }}"
           ok=0
           for i in $(seq 1 30); do
             BUILD=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/build" || true)
             HEALTH=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/health" || true)
             HTML=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/" || true)
             V8=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8.js?v=smoke-v8" || true)
-            if echo "$BUILD" | grep -q '2026-08-22-store-dc-workflow-v8' \
-              && echo "$HEALTH" | grep -q '"status":"success"' \
-              && echo "$HTML" | grep -q 'Claim Center · Store & DC Operations' \
-              && echo "$HTML" | grep -q 'Claim Workbench' \
-              && echo "$HTML" | grep -q 'Store Queue' \
-              && echo "$HTML" | grep -q 'v8.js' \
-              && ! echo "$HTML" | grep -q 'CCD columns A:AQ' \
-              && echo "$V8" | grep -q '1 Transport = 1 Ticket' \
-              && echo "$V8" | grep -q 'Backup & Restore' \
-              && echo "$V8" | grep -q 'Dropdown Settings'; then
-              echo "Production V8 is live"
+            compat_ok=1
+            if [[ "$EVENT_NAME" != "pull_request" ]]; then
+              COMPAT=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8-compat.js?v=smoke-compat" || true)
+              if [[ "$COMPAT" != *"Decision สำหรับทั้ง Claim"* ]] || [[ "$COMPAT" != *"installReliableLogin"* ]]; then
+                compat_ok=0
+              fi
+            fi
+            if [[ "$BUILD" == *"2026-08-22-store-dc-workflow-v8"* ]] \
+              && [[ "$HEALTH" == *'"status":"success"'* ]] \
+              && [[ "$HTML" == *"Claim Center · Store & DC Operations"* ]] \
+              && [[ "$HTML" == *"Claim Workbench"* ]] \
+              && [[ "$HTML" == *"Store Queue"* ]] \
+              && [[ "$HTML" == *"v8.js"* ]] \
+              && [[ "$HTML" != *"CCD columns A:AQ"* ]] \
+              && [[ "$V8" == *"1 Transport = 1 Ticket"* ]] \
+              && [[ "$V8" == *"Backup & Restore"* ]] \
+              && [[ "$V8" == *"Dropdown Settings"* ]] \
+              && [[ "$compat_ok" = "1" ]]; then
+              echo "Production V8 is live${EVENT_NAME:+ ($EVENT_NAME)}"
               echo "$BUILD"
               ok=1
               break
             fi
-            echo "Attempt $i: V8 not ready: ${BUILD:0:180}"
+            echo "Attempt $i: production not ready: ${BUILD:0:180}"
             sleep 10
           done
           test "$ok" = "1"
