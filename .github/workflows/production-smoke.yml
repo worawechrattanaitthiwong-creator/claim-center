@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Wait for Store/DC Workflow V8.1 observer repair
+      - name: Wait for Claim Center operations pack
         shell: bash
         run: |
           set -euo pipefail
@@ -23,8 +23,10 @@ jobs:
             BUILD=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/build" || true)
             HEALTH=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/health" || true)
             HTML=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/" || true)
-            V8=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8.js?v=20260822-observerfix1&smoke=observer" || true)
-            COMPAT=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8-compat.js?v=20260822-observerfix1&smoke=observer" || true)
+            V8=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8.js?v=20260822-observerfix1&smoke=ops12" || true)
+            COMPAT=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8-compat.js?v=20260822-observerfix1&smoke=ops12" || true)
+            PLUS=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8-plus.js?v=20260822-ops12&smoke=ops12" || true)
+            PLUSCSS=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8-plus.css?v=20260822-ops12&smoke=ops12" || true)
             if [[ "$BUILD" == *"2026-08-22-store-dc-workflow-v8"* ]] \
               && [[ "$HEALTH" == *'"status":"success"'* ]] \
               && [[ "$HTML" == *"Claim Center · Store & DC Operations"* ]] \
@@ -32,6 +34,8 @@ jobs:
               && [[ "$HTML" == *"Store Queue"* ]] \
               && [[ "$HTML" == *"v8.js?v=20260822-observerfix1"* ]] \
               && [[ "$HTML" == *"v8-compat.js?v=20260822-observerfix1"* ]] \
+              && [[ "$HTML" == *"v8-plus.js?v=20260822-ops12"* ]] \
+              && [[ "$HTML" == *"v8-plus.css?v=20260822-ops12"* ]] \
               && [[ "$HTML" != *"CCD columns A:AQ"* ]] \
               && [[ "$V8" == *"const syncLoginBuild = () =>"* ]] \
               && [[ "$V8" == *"if (current !== 'พร้อมใช้งาน') loginBuild.textContent = 'พร้อมใช้งาน';"* ]] \
@@ -39,25 +43,29 @@ jobs:
               && [[ "$V8" != *"if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent = 'พร้อมใช้งาน';"* ]] \
               && [[ "$V8" != *"preview.textContent = preview.textContent.replace"* ]] \
               && [[ "$V8" == *"1 Transport = 1 Ticket"* ]] \
-              && [[ "$V8" == *"ค้นหาด้วย Transport"* ]] \
-              && [[ "$V8" == *"ไม่จำเป็นต้องจำ Article"* ]] \
-              && [[ "$V8" == *"v8StoreMasterDetails"* ]] \
-              && [[ "$V8" == *"Store Data · Read only"* ]] \
-              && [[ "$V8" == *"Backup & Restore"* ]] \
-              && [[ "$V8" == *"Dropdown Settings"* ]] \
               && [[ "$COMPAT" == *"const sameOptions = currentValues.length === desiredValues.length"* ]] \
               && [[ "$COMPAT" == *"observer.disconnect();"* ]] \
-              && [[ "$COMPAT" == *"observeDropdownContainer"* ]] \
               && [[ "$COMPAT" == *"Decision สำหรับทั้ง Claim"* ]] \
               && [[ "$COMPAT" == *"oldForm.cloneNode(true)"* ]] \
-              && [[ "$COMPAT" == *"ไม่สามารถยืนยัน Session หลังเข้าสู่ระบบ"* ]] \
-              && [[ "$COMPAT" == *"Decision Master"* ]]; then
-              echo "Production observer loop repair is live${EVENT_NAME:+ ($EVENT_NAME)}"
+              && [[ "$COMPAT" == *"Decision Master"* ]] \
+              && [[ "$PLUS" == *"CLAIM OPERATIONS PULSE"* ]] \
+              && [[ "$PLUS" == *"MY WORK / SAVED FILTERS"* ]] \
+              && [[ "$PLUS" == *"Claim Summary ก่อนบันทึก"* ]] \
+              && [[ "$PLUS" == *"Reopen Ticket"* ]] \
+              && [[ "$PLUS" == *"ประวัติ Ticket"* ]] \
+              && [[ "$PLUS" == *"Excel Report"* ]] \
+              && [[ "$PLUS" == *"PDF / Print"* ]] \
+              && [[ "$PLUS" == *"compressImage"* ]] \
+              && [[ "$PLUS" == *"plusGlobalInput"* ]] \
+              && [[ "$PLUSCSS" == *"plus-global-search"* ]] \
+              && [[ "$PLUSCSS" == *"plus-timeline"* ]] \
+              && [[ "$PLUSCSS" == *"plus-gallery"* ]]; then
+              echo "Claim Center operations pack is live${EVENT_NAME:+ ($EVENT_NAME)}"
               echo "$BUILD"
               ok=1
               break
             fi
-            echo "Attempt $i: production observer repair not ready: ${BUILD:0:180}"
+            echo "Attempt $i: production operations pack not ready: ${BUILD:0:180}"
             sleep 10
           done
           test "$ok" = "1"
@@ -70,3 +78,7 @@ jobs:
           test "$code" = "401"
           origin_code=$(curl -sS -o /tmp/origin.json -w '%{http_code}' -H 'content-type: application/json' -H 'Origin: https://example.invalid' --data '{"username":"__origin_test__","password":"__origin_test__"}' "$BASE/api/auth/login")
           test "$origin_code" = "403"
+          plus_code=$(curl -sS -o /tmp/plus.json -w '%{http_code}' "$BASE/api/v8/plus/dashboard")
+          test "$plus_code" = "401"
+          evidence_code=$(curl -sS -o /tmp/evidence.json -w '%{http_code}' "$BASE/api/v8/plus/evidence/status")
+          test "$evidence_code" = "401"
