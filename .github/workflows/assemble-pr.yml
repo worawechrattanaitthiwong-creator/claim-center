@@ -21,14 +21,14 @@ jobs:
           if [[ -f tools/.latest-patch/entry-00.patch ]]; then
             cat tools/.latest-patch/entry-00.patch tools/.latest-patch/entry-01.patch tools/.latest-patch/entry-02.patch > /tmp/entry.patch
             cat tools/.latest-patch/ui-00.patch tools/.latest-patch/ui-01.patch tools/.latest-patch/ui-02.patch tools/.latest-patch/ui-03.patch > /tmp/ui.patch
-            git apply --check /tmp/entry.patch
-            git apply --check /tmp/ui.patch
-            git apply --check tools/.latest-patch/css-00.patch
-            git apply --check tools/.latest-patch/package.patch
-            git apply /tmp/entry.patch
-            git apply /tmp/ui.patch
-            git apply tools/.latest-patch/css-00.patch
-            git apply tools/.latest-patch/package.patch
+            patch --dry-run --batch -p1 -F 3 < /tmp/entry.patch
+            patch --dry-run --batch -p1 -F 3 < /tmp/ui.patch
+            patch --dry-run --batch -p1 -F 3 < tools/.latest-patch/css-00.patch
+            patch --dry-run --batch -p1 -F 3 < tools/.latest-patch/package.patch
+            patch --batch -p1 -F 3 < /tmp/entry.patch
+            patch --batch -p1 -F 3 < /tmp/ui.patch
+            patch --batch -p1 -F 3 < tools/.latest-patch/css-00.patch
+            patch --batch -p1 -F 3 < tools/.latest-patch/package.patch
             rm -rf tools/.latest-patch
           fi
       - uses: actions/setup-node@v4
