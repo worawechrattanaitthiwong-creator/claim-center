@@ -1,0 +1,82 @@
+name: Apply Observer Loop Fix
+on:
+  push:
+    branches: [development]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch the three self-triggering observers
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          v8 = Path('site/v8.js')
+          s = v8.read_text()
+          old = """    const obs = new MutationObserver(() => {\n      if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent = 'พร้อมใช้งาน';\n    });\n    obs.observe(loginBuild, { childList:true, characterData:true, subtree:true });\n    setTimeout(() => { if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent='พร้อมใช้งาน'; }, 300);"""
+          new = """    const syncLoginBuild = () => {\n      const current = loginBuild.textContent || '';\n      if (/ไม่สามารถ/.test(current)) return;\n      if (current !== 'พร้อมใช้งาน') loginBuild.textContent = 'พร้อมใช้งาน';\n    };\n    const obs = new MutationObserver(syncLoginBuild);\n    obs.observe(loginBuild, { childList:true, characterData:true, subtree:true });\n    setTimeout(syncLoginBuild, 300);"""
+          assert old in s, 'login observer pattern not found'
+          s = s.replace(old, new, 1)
+
+          old = """    new MutationObserver(() => {\n      preview.textContent = preview.textContent.replace(/\\s*·\\s*43 columns/gi, '');\n    }).observe(preview, { childList:true, characterData:true, subtree:true });"""
+          new = """    const scrubPreview = () => {\n      const before = preview.textContent || '';\n      const after = before.replace(/\\s*·\\s*43 columns/gi, '');\n      if (after !== before) preview.textContent = after;\n    };\n    new MutationObserver(scrubPreview).observe(preview, { childList:true, characterData:true, subtree:true });"""
+          assert old in s, 'export observer pattern not found'
+          s = s.replace(old, new, 1)
+          v8.write_text(s)
+
+          compat = Path('site/v8-compat.js')
+          s = compat.read_text()
+          old = """function setSelectOptions(el, category, fallback=[], defaultValue='') {\n  if (!el) return;\n  const old = el.value;\n  const values = optionValues(category);\n  const list = values.length ? values : fallback;\n  el.innerHTML = '<option value=\"\">— เลือก —</option>' + list.map(v => `<option value=\"${escHtml(v)}\">${escHtml(v)}</option>`).join('');\n  if (old && list.includes(old)) el.value = old;\n  else if (defaultValue && list.includes(defaultValue)) el.value = defaultValue;\n}"""
+          new = """function setSelectOptions(el, category, fallback=[], defaultValue='') {\n  if (!el) return;\n  const old = el.value;\n  const values = optionValues(category);\n  const list = values.length ? values : fallback;\n  const desiredValues = ['', ...list.map(String)];\n  const currentValues = [...el.options].map(option => option.value);\n  const sameOptions = currentValues.length === desiredValues.length && currentValues.every((value, index) => value === desiredValues[index]);\n  if (!sameOptions) {\n    el.innerHTML = '<option value=\"\">— เลือก —</option>' + list.map(v => `<option value=\"${escHtml(v)}\">${escHtml(v)}</option>`).join('');\n  }\n  if (old && list.includes(old)) el.value = old;\n  else if (defaultValue && list.includes(defaultValue)) el.value = defaultValue;\n}"""
+          assert old in s, 'setSelectOptions pattern not found'
+          s = s.replace(old, new, 1)
+
+          old = """  const rows = q('#decisionRows');\n  if (rows) new MutationObserver(() => {\n    syncVisibleDropdowns();\n    updateLegacySummary();\n  }).observe(rows, { childList:true, subtree:true });\n\n  const detail = q('#detailFields');\n  if (detail) new MutationObserver(() => syncVisibleDropdowns()).observe(detail, { childList:true, subtree:true });\n\n  const storeItems = q('#storeItemRows');\n  if (storeItems) new MutationObserver(() => syncVisibleDropdowns()).observe(storeItems, { childList:true, subtree:true });"""
+          new = """  const observeDropdownContainer = (element, afterSync=null) => {\n    if (!element) return;\n    const options = { childList:true, subtree:true };\n    const observer = new MutationObserver(() => {\n      observer.disconnect();\n      try {\n        syncVisibleDropdowns();\n        if (afterSync) afterSync();\n      } finally {\n        observer.observe(element, options);\n      }\n    });\n    observer.observe(element, options);\n  };\n\n  observeDropdownContainer(q('#decisionRows'), updateLegacySummary);\n  observeDropdownContainer(q('#detailFields'));\n  observeDropdownContainer(q('#storeItemRows'));"""
+          assert old in s, 'compat observer pattern not found'
+          s = s.replace(old, new, 1)
+          compat.write_text(s)
+
+          runtime = Path('worker/v8-runtime.js')
+          s = runtime.read_text()
+          s = s.replace('/v8-compat.js?v=20260822-login2', '/v8-compat.js?v=20260822-observerfix1')
+          s = s.replace('/v8.js?v=20260822-loginfix1', '/v8.js?v=20260822-observerfix1')
+          runtime.write_text(s)
+
+          test = Path('test/observer-loop-contract.mjs')
+          test.write_text("""import fs from 'node:fs';\n\nconst v8 = fs.readFileSync('site/v8.js','utf8');\nconst compat = fs.readFileSync('site/v8-compat.js','utf8');\nconst runtime = fs.readFileSync('worker/v8-runtime.js','utf8');\n\nconst checks = [\n  ['login writes only when text changes', v8.includes(\"if (current !== 'พร้อมใช้งาน') loginBuild.textContent = 'พร้อมใช้งาน';\")],\n  ['old self-writing login observer removed', !v8.includes(\"if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent = 'พร้อมใช้งาน';\")],\n  ['export preview writes only when changed', v8.includes('if (after !== before) preview.textContent = after;')],\n  ['old export self-write removed', !v8.includes('preview.textContent = preview.textContent.replace')],\n  ['dropdown option rewrite is idempotent', compat.includes('const sameOptions = currentValues.length === desiredValues.length') && compat.includes('if (!sameOptions)')],\n  ['dropdown observers disconnect before syncing', compat.includes('observer.disconnect();') && compat.includes('observeDropdownContainer')],\n  ['old decision observer removed', !compat.includes(\"if (rows) new MutationObserver(() => {\\n    syncVisibleDropdowns();\")],\n  ['mobile cache bust is current', runtime.includes('20260822-observerfix1')]\n];\nfor (const [name, ok] of checks) {\n  if (!ok) { console.error('FAIL:', name); process.exitCode = 1; }\n  else console.log('PASS:', name);\n}\n""")
+
+          pkg = Path('package.json')
+          s = pkg.read_text()
+          needle = 'node test/latest-command-contract.mjs'
+          replacement = needle + ' && node test/observer-loop-contract.mjs'
+          assert needle in s and 'observer-loop-contract' not in s, 'package test pattern not found or already patched'
+          pkg.write_text(s.replace(needle, replacement, 1))
+          PY
+      - name: Part 2 validation
+        run: |
+          npm install --no-package-lock --ignore-scripts
+          npm run check
+          npm test
+      - name: Commit repaired source and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-observer-loop-fix.yml
+          git add site/v8.js site/v8-compat.js worker/v8-runtime.js package.json test/observer-loop-contract.mjs
+          git commit -m "fix: stop self-triggering UI observers"
+          git push origin HEAD:development
