@@ -1,0 +1,56 @@
+name: Assemble Latest Store DC
+on:
+  push:
+    branches: [development]
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 0
+      - name: Assemble staged source patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f tools/.latest-patch/entry-00.patch ]]; then
+            echo "No staged source patches remain."
+            exit 0
+          fi
+          cat tools/.latest-patch/entry-00.patch tools/.latest-patch/entry-01.patch tools/.latest-patch/entry-02.patch > /tmp/entry.patch
+          cat tools/.latest-patch/ui-00.patch tools/.latest-patch/ui-01.patch tools/.latest-patch/ui-02.patch tools/.latest-patch/ui-03.patch > /tmp/ui.patch
+          cp tools/.latest-patch/css-00.patch /tmp/css.patch
+          cp tools/.latest-patch/package.patch /tmp/package.patch
+          git apply --check /tmp/entry.patch
+          git apply --check /tmp/ui.patch
+          git apply --check /tmp/css.patch
+          git apply --check /tmp/package.patch
+          git apply /tmp/entry.patch
+          git apply /tmp/ui.patch
+          git apply /tmp/css.patch
+          git apply /tmp/package.patch
+          rm -rf tools/.latest-patch
+      - name: Validate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run check
+          npm test
+      - name: Commit assembled source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: assemble latest Store DC workflow"
+          git push origin HEAD:development
