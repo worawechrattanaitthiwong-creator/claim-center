@@ -1,0 +1,41 @@
+name: V6 API Boundary Fix
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ startsWith(github.head_ref, 'v6-api-boundary-fix') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - name: Fix async API error boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('worker/v5-entry.js')
+          s=p.read_text()
+          old="if(url.pathname.startsWith('/api/'))return api(request,env,url);"
+          new="if(url.pathname.startsWith('/api/'))return await api(request,env,url);"
+          if old not in s and new not in s:
+              raise SystemExit('API dispatch marker not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          node --check worker/v5-entry.js
+          npm test
+      - name: Commit fix to PR branch
+        run: |
+          git config user.name "claim-center-v6-fix-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add worker/v5-entry.js
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix: await API dispatch so errors return JSON"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
