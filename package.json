@@ -1,6 +1,6 @@
 {
   "name": "claim-center",
-  "version": "8.2.0",
+  "version": "8.2.1",
   "private": true,
   "type": "module",
   "description": "Claim Center Store and DC Operations on Cloudflare Workers + D1",
@@ -10,7 +10,7 @@
     "test": "node test/hardening-check.mjs && node test/v7-contract.mjs && node test/v8-contract.mjs && node test/compat-contract.mjs && node test/latest-command-contract.mjs && node test/observer-loop-contract.mjs && node test/login-freeze-contract.mjs && node test/ops-pack-contract.mjs",
     "dev": "wrangler dev",
     "db:migrate:remote": "wrangler d1 migrations apply claim-center --remote",
-    "deploy": "npm run db:migrate:remote && wrangler deploy"
+    "deploy": "wrangler deploy && npm run db:migrate:remote && wrangler deploy"
   },
-  "devDependencies": {"wrangler": "^4.0.0"}
+  "devDependencies": {"wrangler": "^4.45.0"}
 }
