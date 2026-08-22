@@ -1,0 +1,62 @@
+name: Apply V7 Development
+
+on:
+  push:
+    branches: [development]
+    paths: ['.v7-trigger']
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 0
+
+      - name: Apply V7 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64,lzma,tarfile,io,pathlib
+          parts=[]
+          for p in sorted(pathlib.Path('tools').glob('v7chunk_*')):
+              parts.append(p.read_text().strip())
+          if len(parts) != 7:
+              raise SystemExit(f'Expected 7 V7 payload chunks, found {len(parts)}')
+          raw=base64.b64decode(''.join(parts))
+          tar=lzma.decompress(raw)
+          with tarfile.open(fileobj=io.BytesIO(tar),mode='r:') as tf:
+              tf.extractall('.')
+          for f in [
+              'worker/v5-entry.js',
+              'site/app-core-v5.js',
+              'site/claim-workspace-v5.js',
+              'site/admin-v5.js',
+              'site/v5-extra.css',
+              'test/hardening-check.mjs'
+          ]:
+              pathlib.Path(f).unlink(missing_ok=True)
+          PY
+
+      - name: Test V7
+        run: npm run check && npm test
+
+      - name: Commit V7 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "claim-center-v7-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add worker site migrations test package.json wrangler.jsonc README.md
+          if git diff --cached --quiet; then
+            echo "No V7 runtime changes to commit"
+            exit 0
+          fi
+          git commit -m "[v7] Collaboration operations network"
+          git push origin HEAD:development
