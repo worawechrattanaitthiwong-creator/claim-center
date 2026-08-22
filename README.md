@@ -1,78 +1,25 @@
-# Claim Center — Clean Rewrite
+# Claim Center · Global Operations V5
 
-ระบบ Claim Center เขียนใหม่จากศูนย์สำหรับ Cloudflare Workers + D1 โดยคงโครงสร้างข้อมูลและ Business Logic ที่จำเป็นจาก Claim CCD เดิม
+Clean production rewrite for Cloudflare Workers + D1. The business contract is derived from **Claim CCD.xlsm** and **Claim_Data_2026_Jul.xlsx**.
 
-## Production architecture
+## Runtime
+- `worker/v5-entry.js` — API, auth, claim logic, reference/claim numbering, masters, users, audit
+- `site/index.html` — Global Operations UI
+- `site/styles.css` — responsive light/dark design system
+- `site/app.js` — client workflow
+- `migrations/0007_global_ops_v5.sql` — clean D1 schema for empty/new database
 
-```text
-GitHub main
-  ├─ worker/main.js       # Worker/API ตัวเดียว
-  ├─ site/index.html      # UI หลักตัวเดียว
-  ├─ site/app.js          # Frontend controller ตัวเดียว
-  ├─ site/styles.css      # Light/Dark design system
-  ├─ migrations/          # D1 schema 0001–0006
-  ├─ wrangler.jsonc
-  └─ package.json
-        ↓
-Cloudflare Git Build
-        ↓
-Worker: claim-center
-        ↓
-D1: claim-center
-```
+## CCD contract
+Exports exactly **43 columns A:AQ** using the Excel names/positions, including duplicated `Format Type` at X and AF. D1 uses distinct physical columns (`format_type` and `store_format`) while import/export preserves the Excel layout.
 
-ไม่มี runtime UI injection, ไม่มี Worker wrapper ซ้อน, ไม่มี Pivot Table และไม่มี frontend legacy directory
+## Numbering
+- Claim: `CM-YYYYMM######`
+- DC Reference: `CCD#######`
+- TP Reference: `TF#######`
+- Reference is created only for `Accept` + `DC/TP`.
 
-## UI
+## Deployment
+Cloudflare build command: `npm run check && npm test`
+Cloudflare deploy command: `npm run deploy`
 
-- Operations Dashboard
-- แจ้งเคลม
-- รายการเคลม
-- RunValidation (E = Article + O = Reference)
-- Reference
-- สถิติการทำงาน
-- Dynamic Dropdown (Admin)
-- Master Store / Master Article Weekly Replace (Admin)
-- Historical Import A:AQ (Admin)
-- User Management (Admin)
-- Light / Dark mode
-
-## Data contract
-
-D1 migrations `0001`–`0006` ถูกเก็บไว้เพื่อรักษา schema เดิมและข้อมูล Production
-
-Master Article mapping หลัก:
-
-- A = ARTICLE
-- D = BARCODE
-- E = DESCRIPTION
-- L = MANAGE_WEIGHT
-- AJ = ITEM_VALUE (SKU Cost)
-- AN = SEG_DESCRIPTION
-
-RunValidation:
-
-- อ่านข้อมูลตั้งแต่ Excel row 10
-- E = Article
-- O = Reference
-- Match ด้วย `Article + Reference_No.`
-- พบ: `DC Accept / Valid / Process ในระบบได้`
-- ไม่พบ: `No Accept / No Valid`
-
-## Deploy
-
-Cloudflare Git Build ใช้:
-
-```bash
-npm run check && npm test
-npm run deploy
-```
-
-`wrangler.jsonc` ชี้ `worker/main.js` และ Static Assets จาก `site/` เท่านั้น
-
-## Safety
-
-- `ADMIN_PASSWORD` ต้องเก็บเป็น Cloudflare Secret
-- D1 binding ต้องเป็น `DB → claim-center`
-- อย่าลบ D1 database เมื่อต้องการเปลี่ยน UI/Worker
-- การแก้ schema ใหม่ให้ทำผ่าน migration ใหม่เท่านั้น
+`npm run deploy` applies remote D1 migrations before deploying the Worker. `0007` intentionally rebuilds the runtime schema because the target D1 is empty.

@@ -1,16 +1,16 @@
 {
-  "name": "claim-center",
-  "version": "3.2.0",
-  "private": true,
-  "type": "module",
-  "description": "Claim Center clean rewrite on Cloudflare Workers + D1 with Claim_Data A:AQ contract",
-  "engines": {"node": ">=22.5.0"},
-  "scripts": {
-    "check": "node --check worker/main.js && node --check worker/contract-entry.js && node --check site/app-core.js && node --check site/app-contract.js && node --check site/ux-runtime.js && node --check site/app.js",
-    "test": "node -e \"import('./worker/contract-entry.js').then(m=>{if(m.CLAIM_HEADERS.length!==43)throw new Error('Claim contract must be 43 columns');if(m.CLAIM_HEADERS[1]!=='Store Name (Thai)'||m.CLAIM_HEADERS[20]!=='Ship Date'||m.CLAIM_HEADERS[31]!=='Format Type'||m.CLAIM_HEADERS[42]!=='Year')throw new Error('Claim contract positions changed');console.log('A:AQ contract ok')})\" && node -e \"const fs=require('fs');const h=fs.readFileSync('site/index.html','utf8');for(const v of ['RunValidation','data-page=\\\"validation\\\"','data-theme-choice','Master Article — Weekly Replace'])if(!h.includes(v))throw new Error('Missing clean UI contract: '+v);if(h.includes('Pivot Table'))throw new Error('Pivot Table must not exist');console.log('UI contract ok')\" && node -e \"const fs=require('fs');const u=fs.readFileSync('site/ux-runtime.js','utf8');for(const v of ['cancelClaim','beforeunload','กำลังบันทึก','ux-invalid'])if(!u.includes(v))throw new Error('Missing UX safeguard: '+v);console.log('workflow UX contract ok')\"",
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "db:migrate:remote": "wrangler d1 migrations apply claim-center --remote"
+  "name":"claim-center",
+  "version":"5.0.0",
+  "private":true,
+  "type":"module",
+  "description":"Claim Center Global Operations V5 — clean CCD CLAIM workflow on Cloudflare Workers + D1",
+  "engines":{"node":">=22.5.0"},
+  "scripts":{
+    "check":"node --check worker/v5-entry.js && node --check site/app.js",
+    "test":"node -e \"import('./worker/v5-entry.js').then(m=>{if(m.CLAIM_HEADERS.length!==43)throw new Error('A:AQ must be 43 columns');if(m.CLAIM_HEADERS[20]!=='Ship Date'||m.CLAIM_HEADERS[24]!=='Claim NO'||m.CLAIM_HEADERS[25]!=='Reference_No.'||m.CLAIM_HEADERS[42]!=='Year')throw new Error('CCD column contract moved');console.log('CCD A:AQ contract ok')})\" && node -e \"const fs=require('fs');const h=fs.readFileSync('site/index.html','utf8');for(const x of ['Command Center','Claim Workspace','Validation Center','Reference Ledger','User Access','Audit Trail'])if(!h.includes(x))throw new Error('Missing V5 UI: '+x);if(h.includes('Pivot Table'))throw new Error('Pivot must not exist');console.log('Global Ops UI contract ok')\"",
+    "dev":"wrangler dev",
+    "db:migrate:remote":"wrangler d1 migrations apply claim-center --remote",
+    "deploy":"npm run db:migrate:remote && wrangler deploy"
   },
-  "devDependencies": {"wrangler": "^4.0.0"}
+  "devDependencies":{"wrangler":"^4.0.0"}
 }
