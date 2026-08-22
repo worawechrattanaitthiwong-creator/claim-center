@@ -11,7 +11,7 @@ export default {async fetch(request,env){
   try{
     if(url.pathname==='/api/build')return json({status:'success',build:BUILD,contract:'A:AQ 43 columns',worker:'worker/v5-entry.js',security:'rate-limit+origin+money-rounding'});
     if(url.pathname==='/api/health'){const x=await env.DB.prepare('SELECT 1 ok').first();return json({status:x?.ok===1?'success':'error',build:BUILD,time:now()});}
-    if(url.pathname.startsWith('/api/'))return api(request,env,url);
+    if(url.pathname.startsWith('/api/'))return await api(request,env,url);
     const r=await env.ASSETS.fetch(request);return noStore(r);
   }catch(e){console.error(e);return json({status:'error',message:e?.publicMessage||e?.message||'Internal error'},e?.status||500);}
 }};
