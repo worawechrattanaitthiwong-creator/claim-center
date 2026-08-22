@@ -6,6 +6,25 @@ on:
 permissions:
   contents: read
 jobs:
+  inspect-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate Wrangler bundle without deploying
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --ignore-scripts --no-audit --no-fund
+          npx wrangler --version
+          node --check worker/v8-plus.js
+          node --check worker/v8-runtime.js
+          npx wrangler deploy --dry-run --outdir /tmp/wrangler-dry
+          echo 'DRY_RUN_PASS'
+          find /tmp/wrangler-dry -maxdepth 2 -type f -printf '%p %s bytes\n' | sort | head -30
   inspect-live:
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -30,8 +49,11 @@ jobs:
           fetch html "$BASE/?diag=$TS"
           fetch plusjs "$BASE/v8-plus.js?v=20260822-ops12&diag=$TS"
           fetch pluscss "$BASE/v8-plus.css?v=20260822-ops12&diag=$TS"
-          API_CODE=$(curl -sS --connect-timeout 10 --max-time 20 -o /tmp/plusapi -w '%{http_code}' "$BASE/api/v8/plus/dashboard?diag=$TS" || true)
-          echo "=== plusapi code=$API_CODE ==="; cat /tmp/plusapi; echo
+          for path in api/v8/plus/dashboard api/v8/me api/v8/not-a-route api/v7/notifications; do
+            safe=$(echo "$path" | tr '/' '_')
+            code=$(curl -sS --connect-timeout 10 --max-time 20 -o "/tmp/$safe" -w '%{http_code}' "$BASE/$path?diag=$TS" || true)
+            echo "=== $path code=$code ==="; head -c 500 "/tmp/$safe"; echo
+          done
           check() {
             local file="$1" label="$2" marker="$3"
             if grep -Fq "$marker" "$file"; then echo "PASS $label"; else echo "MISS $label"; fi
