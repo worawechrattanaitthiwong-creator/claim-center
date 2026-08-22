@@ -1,0 +1,80 @@
+     if (!adminMode && !STORE_EDITABLE.has(existing.status)) return 0;
+     const status = adminMode ? text(c.status || existing.status) : 'SUBMITTED';
+@@ -719,7 +773,7 @@
+     await env.DB.batch([
+       env.DB.prepare("DELETE FROM references_ledger WHERE claim_no IN (SELECT claim_no FROM claims WHERE source_channel='STORE')"),
+       env.DB.prepare("DELETE FROM claims WHERE source_channel='STORE'"),
+-      env.DB.prepare('DELETE FROM notifications'),
++      env.DB.prepare('DELETE FROM notifications WHERE store_case_id IS NOT NULL'),
+       env.DB.prepare('DELETE FROM case_messages'),
+       env.DB.prepare('DELETE FROM store_case_items'),
+       env.DB.prepare('DELETE FROM store_cases')
+@@ -754,6 +808,68 @@
+   return json({ status: 'success', scopes: selected, counts, note: 'บัญชีผู้ใช้และ Audit Log ไม่ถูกลบ' });
+ }
+ 
++function storeMasterImportView(raw) {
++  if (Array.isArray(raw)) {
++    return {
++      storeCode:digits(raw[0]), storeType:text(raw[1]), profile:text(raw[2]), status:text(raw[3]),
++      storeName:text(raw[4] || raw[5] || raw[1]), englishName:text(raw[5]), formatType:text(raw[20] || raw[12] || raw[1]),
++      check100:text(raw[22] || '')
++    };
++  }
++  const obj = raw && typeof raw === 'object' ? raw : {};
++  return {
++    storeCode:digits(obj.storeCode || obj['Location ID'] || obj.locationId),
++    storeName:text(obj.storeName || obj['Thai name'] || obj.thaiName || obj['English name'] || obj.englishName),
++    storeType:text(obj.storeType || obj['Store type']),
++    profile:text(obj.profile || obj['Store profile by Symphony']), status:text(obj.status || obj['Store Status']),
++    englishName:text(obj.englishName || obj['English name']), formatType:text(obj.formatType || obj.Lanes || obj['Zone TH'] || obj['Store type']),
++    check100:text(obj.check100 || '')
++  };
++}
++
++function masterStoreView(row) {
++  const raw = safeJson(row.raw_json);
++  const a = Array.isArray(raw) ? raw : [];
++  const value = (i, fallback='') => text(a[i] ?? fallback);
++  return {
++    store_code:digits(row.store_code), store_name:text(row.store_name || value(4) || value(5) || value(1)),
++    format_type:text(row.format_type || value(20) || value(12)), store_type:text(row.store_type || value(1)),
++    check_100:text(row.check_100), updated_at:text(row.updated_at),
++    location_id:value(0,row.store_code), store_profile:value(2), store_status:value(3), thai_name:value(4,row.store_name), english_name:value(5),
++    block:value(6), street:value(7), city:value(8), province_th:value(9), province:value(10), region:value(11), zone_th:value(12), sub_zone:value(13),
++    postal_code:value(14), latitude:value(15), longitude:value(16), max_truck_type:value(17), group:value(18), lanes_group:value(19), lanes:value(20,row.format_type), via_hub_location_id:value(21)
++  };
++}
++
++function masterArticleView(row) {
++  const raw = safeJson(row.raw_json);
++  const a = Array.isArray(raw) ? raw : [];
++  const value = (i, fallback='') => text(a[i] ?? fallback);
++  return {
++    article:text(row.article || value(0)), barcode:text(row.barcode || value(3)).replaceAll("'",''), description:text(row.description || value(4)),
++    sku_cost:roundMoney(row.sku_cost ?? row.item_value ?? value(35)), item_value:roundMoney(row.sku_cost ?? row.item_value ?? value(35)),
++    supplier_code:value(5), supplier_name:value(6), prep_unit:value(7), pack_size:value(8), working_mode:value(9), master_status:value(10),
++    manage_weight:text(row.manage_weight || value(11)), unit_management:value(12), net_weight:value(13), sku_pu:value(14),
++    logistic_family:value(36), sub_family:value(37), segment:value(38), seg_description:text(row.seg_description || value(39)), sub_dept:value(40),
++    picking_address:value(41), pivot_address:value(42), picking_unit:value(43), eggs:text(row.eggs), master_matched:true
++  };
++}
++
++async function enrichStoreItemsFromMaster(env, items) {
++  if (!Array.isArray(items) || !items.length) return [];
++  const active = await env.DB.prepare('SELECT active_batch_id FROM master_article_state WHERE id=1').first();
++  if (!active?.active_batch_id) return items;
++  const articles = [...new Set(items.map(x => text(x.article)).filter(Boolean))].slice(0,100);
++  if (!articles.length) return items;
++  const r = await env.DB.prepare(`SELECT article,barcode,description,item_value sku_cost,seg_description,manage_weight,eggs,raw_json FROM master_articles WHERE batch_id=? AND article IN (${marks(articles.length)})`)
++    .bind(active.active_batch_id, ...articles).all();
++  const map = new Map((r.results || []).map(x => [text(x.article), masterArticleView(x)]));
++  return items.map(x => {
++    const master = map.get(text(x.article)) || null;
++    return master ? { ...x, master, segDescription:master.seg_description, manageWeight:master.manage_weight, eggs:master.eggs } : { ...x, master:null };
++  });
++}
++
+ async function optionExists(env, category, value) {
+   const x = await env.DB.prepare('SELECT 1 ok FROM dropdown_options WHERE category=? AND value=? COLLATE NOCASE AND active=1 LIMIT 1').bind(category, value).first();
+   return Boolean(x?.ok);
