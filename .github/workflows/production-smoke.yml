@@ -1,0 +1,68 @@
+name: Production Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for Cloudflare deployment and verify live Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://claim-center.worawech-rattanaitthiwong.workers.dev"
+          echo "Waiting for Global Operations V5 at $BASE"
+          ok=0
+          for i in $(seq 1 40); do
+            echo "Attempt $i/40"
+            BUILD=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/build" || true)
+            HEALTH=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/health" || true)
+            HTML=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/" || true)
+            APP=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/app.js?v=smoke" || true)
+            CORE=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/app-core-v5.js?v=smoke" || true)
+
+            if echo "$BUILD" | grep -q '2026-08-22-global-ops-v5' \
+              && echo "$HEALTH" | grep -q '"status":"success"' \
+              && echo "$HTML" | grep -q 'Claim Center · Global Operations' \
+              && echo "$APP" | grep -q '__CLAIM_V5_STARTED__' \
+              && echo "$CORE" | grep -q 'async function login'; then
+              echo "Production is live and V5 runtime is reachable."
+              echo "BUILD=$BUILD"
+              echo "HEALTH=$HEALTH"
+              ok=1
+              break
+            fi
+
+            echo "Not ready yet. build=${BUILD:0:160} health=${HEALTH:0:160}"
+            sleep 15
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "Production did not become ready within the smoke window."
+            echo "Final /api/build:"
+            curl -i --max-time 20 "$BASE/api/build" || true
+            echo "Final /api/health:"
+            curl -i --max-time 20 "$BASE/api/health" || true
+            exit 1
+          fi
+
+      - name: Verify login API is active without exposing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://claim-center.worawech-rattanaitthiwong.workers.dev"
+          code=$(curl -sS -o /tmp/login.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            --data '{"username":"__smoke_invalid__","password":"__smoke_invalid__"}' \
+            "$BASE/api/auth/login")
+          cat /tmp/login.json
+          test "$code" = "401"
+          grep -q 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' /tmp/login.json
+          echo "Login endpoint is active (expected 401 for invalid smoke credentials)."
