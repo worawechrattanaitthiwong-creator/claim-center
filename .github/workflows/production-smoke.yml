@@ -20,22 +20,24 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://claim-center.worawech-rattanaitthiwong.workers.dev"
-          echo "Waiting for Global Operations V5 at $BASE"
+          echo "Waiting for Security Hardening V6 at $BASE"
           ok=0
           for i in $(seq 1 40); do
             echo "Attempt $i/40"
             BUILD=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/build" || true)
             HEALTH=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/health" || true)
             HTML=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/" || true)
-            APP=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/app.js?v=smoke" || true)
-            CORE=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/app-core-v5.js?v=smoke" || true)
+            APP=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/app.js?v=smoke-v6" || true)
+            CORE=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/app-core-v5.js?v=smoke-v6" || true)
 
-            if echo "$BUILD" | grep -q '2026-08-22-global-ops-v5' \
+            if echo "$BUILD" | grep -q '2026-08-22-security-hardening-v6' \
               && echo "$HEALTH" | grep -q '"status":"success"' \
               && echo "$HTML" | grep -q 'Claim Center · Global Operations' \
-              && echo "$APP" | grep -q '__CLAIM_V5_STARTED__' \
+              && ! echo "$HTML" | grep -q '2030164' \
+              && echo "$APP" | grep -q '__CLAIM_V6_LOADER__' \
+              && ! echo "$APP" | grep -Eq '\beval\s*\(' \
               && echo "$CORE" | grep -q 'async function login'; then
-              echo "Production is live and V5 runtime is reachable."
+              echo "Production is live and hardened V6 runtime is reachable."
               echo "BUILD=$BUILD"
               echo "HEALTH=$HEALTH"
               ok=1
@@ -55,11 +57,12 @@ jobs:
             exit 1
           fi
 
-      - name: Verify login API is active without exposing credentials
+      - name: Verify login API and Origin protection
         shell: bash
         run: |
           set -euo pipefail
           BASE="https://claim-center.worawech-rattanaitthiwong.workers.dev"
+
           code=$(curl -sS -o /tmp/login.json -w '%{http_code}' \
             -H 'content-type: application/json' \
             --data '{"username":"__smoke_invalid__","password":"__smoke_invalid__"}' \
@@ -67,4 +70,13 @@ jobs:
           cat /tmp/login.json
           test "$code" = "401"
           grep -q 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' /tmp/login.json
-          echo "Login endpoint is active (expected 401 for invalid smoke credentials)."
+
+          origin_code=$(curl -sS -o /tmp/origin.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            -H 'Origin: https://example.invalid' \
+            --data '{"username":"__origin_test__","password":"__origin_test__"}' \
+            "$BASE/api/auth/login")
+          cat /tmp/origin.json
+          test "$origin_code" = "403"
+          grep -q 'Origin not allowed' /tmp/origin.json
+          echo "Login endpoint and Origin protection are active."
