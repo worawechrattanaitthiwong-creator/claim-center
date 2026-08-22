@@ -1,0 +1,55 @@
+name: Live Operations Diagnostic
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect exact live deployment markers
+        shell: bash
+        run: |
+          set -u
+          BASE="https://claim-center.worawech-rattanaitthiwong.workers.dev"
+          TS=$(date +%s)
+          fetch() {
+            local name="$1" url="$2" out="/tmp/$1"
+            local code
+            code=$(curl -sS --connect-timeout 10 --max-time 20 -o "$out" -w '%{http_code}' "$url" || true)
+            local type bytes
+            type=$(curl -sSI --connect-timeout 10 --max-time 20 "$url" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2; exit}' || true)
+            bytes=$(wc -c < "$out" 2>/dev/null || echo 0)
+            echo "=== $name code=$code type=${type:-none} bytes=$bytes ==="
+          }
+          fetch build "$BASE/api/build?diag=$TS"
+          cat /tmp/build; echo
+          fetch html "$BASE/?diag=$TS"
+          fetch plusjs "$BASE/v8-plus.js?v=20260822-ops12&diag=$TS"
+          fetch pluscss "$BASE/v8-plus.css?v=20260822-ops12&diag=$TS"
+          API_CODE=$(curl -sS --connect-timeout 10 --max-time 20 -o /tmp/plusapi -w '%{http_code}' "$BASE/api/v8/plus/dashboard?diag=$TS" || true)
+          echo "=== plusapi code=$API_CODE ==="; cat /tmp/plusapi; echo
+          check() {
+            local file="$1" label="$2" marker="$3"
+            if grep -Fq "$marker" "$file"; then echo "PASS $label"; else echo "MISS $label"; fi
+          }
+          check /tmp/html html_plus_js 'v8-plus.js?v=20260822-ops12'
+          check /tmp/html html_plus_css 'v8-plus.css?v=20260822-ops12'
+          check /tmp/html html_v8 'v8.js?v=20260822-observerfix1'
+          check /tmp/html html_compat 'v8-compat.js?v=20260822-observerfix1'
+          check /tmp/plusjs js_pulse 'CLAIM OPERATIONS PULSE'
+          check /tmp/plusjs js_filters 'MY WORK / SAVED FILTERS'
+          check /tmp/plusjs js_summary 'Claim Summary ก่อนบันทึก'
+          check /tmp/plusjs js_reopen 'Reopen Ticket'
+          check /tmp/plusjs js_timeline 'ประวัติ Ticket'
+          check /tmp/plusjs js_excel 'Excel Report'
+          check /tmp/plusjs js_pdf 'PDF / Print'
+          check /tmp/plusjs js_compress 'compressImage'
+          check /tmp/pluscss css_search 'plus-global-search'
+          check /tmp/pluscss css_timeline 'plus-timeline'
+          check /tmp/pluscss css_gallery 'plus-gallery'
+          echo '=== first plusjs bytes ==='; head -c 300 /tmp/plusjs; echo
+          echo '=== first pluscss bytes ==='; head -c 300 /tmp/pluscss; echo
