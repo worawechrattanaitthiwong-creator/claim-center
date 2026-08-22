@@ -1,0 +1,49 @@
+name: Recover Current Main Deployment
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy-current-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PRIMARY_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      PRIMARY_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ALT_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      ALT_ACCOUNT: ${{ secrets.CF_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Deploy exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$PRIMARY_TOKEN"
+          ACCOUNT="$PRIMARY_ACCOUNT"
+          [[ -n "$TOKEN" ]] || TOKEN="$ALT_TOKEN"
+          [[ -n "$ACCOUNT" ]] || ACCOUNT="$ALT_ACCOUNT"
+          if [[ -z "$TOKEN" ]]; then
+            echo 'NO_CLOUDFLARE_DEPLOY_TOKEN_IN_GITHUB_SECRETS'
+            exit 78
+          fi
+          export CLOUDFLARE_API_TOKEN="$TOKEN"
+          if [[ -n "$ACCOUNT" ]]; then export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT"; fi
+          echo "Deploying main commit $(git rev-parse HEAD)"
+          npm install --ignore-scripts --no-audit --no-fund
+          npx wrangler --version
+          npm run check
+          npm test
+          echo 'STEP 1: provision/deploy bindings and assets'
+          npx wrangler deploy
+          echo 'STEP 2: apply pending D1 migrations'
+          npx wrangler d1 migrations apply claim-center --remote
+          echo 'STEP 3: final deploy'
+          npx wrangler deploy
+          echo 'RECOVERY_DEPLOY_PASS'
