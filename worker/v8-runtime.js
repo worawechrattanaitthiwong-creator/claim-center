@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import v8 from './v8-entry.js';
 
 const COOKIE = 'claim_session';
+const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-compat1"></script>';
 
 export default {
   async fetch(request, env) {
@@ -20,7 +21,23 @@ export default {
       }
     }
 
-    return v8.fetch(request, env);
+    const response = await v8.fetch(request, env);
+
+    // Compatibility layer: keep the new Store/DC workflow, while restoring the original
+    // Claim Workspace logic and the system-wide Decision Master behavior.
+    if (method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
+      const type = response.headers.get('content-type') || '';
+      if (response.ok && type.includes('text/html')) {
+        let html = await response.text();
+        if (!html.includes('/v8-compat.js')) html = html.replace('</body>', `${COMPAT_SCRIPT}</body>`);
+        const headers = new Headers(response.headers);
+        headers.set('content-type', 'text/html; charset=utf-8');
+        headers.set('cache-control', 'no-store, max-age=0');
+        return new Response(html, { status: response.status, statusText: response.statusText, headers });
+      }
+    }
+
+    return response;
   }
 };
 
