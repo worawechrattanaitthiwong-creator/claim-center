@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate assembled application
-        run: npm ci && npm run check && npm test
+        run: npm install --no-package-lock --ignore-scripts && npm run check && npm test
       - name: Commit assembled application
         shell: bash
         run: |
