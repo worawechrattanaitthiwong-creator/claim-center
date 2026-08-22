@@ -1,0 +1,169 @@
+name: Apply Evidence Deploy Fix
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'development'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply only the evidence deployment repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          runtime_path = Path('worker/v8-runtime.js')
+          runtime = runtime_path.read_text()
+          anchor = "import plus from './v8-plus.js';\n"
+          block = r'''
+
+const EVIDENCE_MAX_BYTES = 1200000;
+const EVIDENCE_CHUNK_BYTES = 96 * 1024;
+const EVIDENCE_TTL_MS = 35 * 24 * 60 * 60 * 1000;
+
+export class EvidenceStore {
+  constructor(ctx) {
+    this.storage = ctx.storage;
+  }
+
+  async fetch(request) {
+    const method = request.method.toUpperCase();
+    if (method === 'PUT') {
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.byteLength > EVIDENCE_MAX_BYTES) return new Response('Evidence too large', { status: 413 });
+      await this.storage.deleteAll();
+      const count = Math.max(1, Math.ceil(bytes.byteLength / EVIDENCE_CHUNK_BYTES));
+      await this.storage.put('meta', { bytes: bytes.byteLength, count });
+      for (let i = 0; i < count; i++) {
+        const start = i * EVIDENCE_CHUNK_BYTES;
+        const end = Math.min(bytes.byteLength, start + EVIDENCE_CHUNK_BYTES);
+        await this.storage.put(`chunk:${i}`, bytes.slice(start, end).buffer);
+      }
+      await this.storage.setAlarm(Date.now() + EVIDENCE_TTL_MS);
+      return new Response(null, { status: 204 });
+    }
+    if (method === 'GET') {
+      const meta = await this.storage.get('meta');
+      if (!meta) return new Response('Evidence not found', { status: 404 });
+      const output = new Uint8Array(Number(meta.bytes || 0));
+      let offset = 0;
+      for (let i = 0; i < Number(meta.count || 0); i++) {
+        const raw = await this.storage.get(`chunk:${i}`);
+        if (!raw) return new Response('Evidence not found', { status: 404 });
+        const chunk = raw instanceof ArrayBuffer ? new Uint8Array(raw) : new Uint8Array(raw.buffer || raw);
+        output.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return new Response(output, { headers: { etag: `\"${meta.bytes}-${meta.count}\"` } });
+    }
+    if (method === 'DELETE') {
+      await this.storage.deleteAll();
+      return new Response(null, { status: 204 });
+    }
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  async alarm() {
+    await this.storage.deleteAll();
+  }
+}
+
+function evidenceBucket(env) {
+  const namespace = env.EVIDENCE_DO;
+  if (!namespace) return null;
+  const stubFor = key => namespace.get(namespace.idFromName(String(key)));
+  return {
+    async put(key, value) {
+      let body;
+      if (value instanceof ArrayBuffer) body = value;
+      else if (ArrayBuffer.isView(value)) body = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
+      else body = await new Response(value).arrayBuffer();
+      const response = await stubFor(key).fetch('https://evidence.local/', { method: 'PUT', body });
+      if (!response.ok) throw new Error(`Evidence storage PUT failed (${response.status})`);
+    },
+    async get(key) {
+      const response = await stubFor(key).fetch('https://evidence.local/', { method: 'GET' });
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`Evidence storage GET failed (${response.status})`);
+      return { body: response.body, httpEtag: response.headers.get('etag') || '' };
+    },
+    async delete(key) {
+      const response = await stubFor(key).fetch('https://evidence.local/', { method: 'DELETE' });
+      if (!response.ok && response.status !== 404) throw new Error(`Evidence storage DELETE failed (${response.status})`);
+    }
+  };
+}
+
+function evidenceEnv(env) {
+  const EVIDENCE = evidenceBucket(env);
+  return EVIDENCE ? { ...env, EVIDENCE } : env;
+}
+'''
+          if 'export class EvidenceStore' not in runtime:
+              if anchor not in runtime:
+                  raise SystemExit('runtime import anchor not found')
+              runtime = runtime.replace(anchor, anchor + block, 1)
+          old_call = 'return await plus(request, env, user, url);'
+          new_call = 'return await plus(request, evidenceEnv(env), user, url);'
+          if old_call in runtime:
+              runtime = runtime.replace(old_call, new_call, 1)
+          elif new_call not in runtime:
+              raise SystemExit('plus call anchor not found')
+          runtime_path.write_text(runtime)
+
+          wrangler_path = Path('wrangler.jsonc')
+          config = json.loads(wrangler_path.read_text())
+          config.pop('r2_buckets', None)
+          config['durable_objects'] = {
+              'bindings': [
+                  {'name': 'EVIDENCE_DO', 'class_name': 'EvidenceStore'}
+              ]
+          }
+          migrations = [m for m in config.get('migrations', []) if m.get('tag') != 'v1-evidence-free']
+          migrations.append({'tag': 'v1-evidence-free', 'new_sqlite_classes': ['EvidenceStore']})
+          config['migrations'] = migrations
+          wrangler_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + '\n')
+
+          test_path = Path('test/ops-pack-contract.mjs')
+          test = test_path.read_text()
+          old1 = "  ['r2 evidence model', api.includes('env.EVIDENCE.put') && migration.includes('CREATE TABLE IF NOT EXISTS store_case_evidence') && ui.includes('compressImage')],"
+          new1 = "  ['evidence model preserved behind adapter', api.includes('env.EVIDENCE.put') && runtime.includes('export class EvidenceStore') && runtime.includes('evidenceEnv(env)') && migration.includes('CREATE TABLE IF NOT EXISTS store_case_evidence') && ui.includes('compressImage')],"
+          old2 = "  ['r2 draft binding stays isolated', wrangler.includes('\\\"binding\\\": \\\"EVIDENCE\\\"') && wrangler.includes('\\\"r2_buckets\\\"')],"
+          new2 = "  ['free-tier durable object binding', wrangler.includes('\\\"name\\\": \\\"EVIDENCE_DO\\\"') && wrangler.includes('\\\"new_sqlite_classes\\\"') && !wrangler.includes('\\\"r2_buckets\\\"')],"
+          if old1 not in test or old2 not in test:
+              raise SystemExit('focused evidence contract anchors not found')
+          test = test.replace(old1, new1, 1).replace(old2, new2, 1)
+          test_path.write_text(test)
+
+          Path('.github/workflows/apply-evidence-deploy-fix.yml').unlink()
+          PY
+      - name: Validate the focused repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-package-lock --ignore-scripts --no-audit --no-fund
+          npm run check
+          npm test
+          npx wrangler deploy --dry-run --outdir /tmp/evidence-dry-run
+      - name: Commit focused repair to development
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add worker/v8-runtime.js wrangler.jsonc test/ops-pack-contract.mjs .github/workflows/apply-evidence-deploy-fix.yml
+          git commit -m "fix: remove R2 deployment blocker"
+          git push origin HEAD:development
