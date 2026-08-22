@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "claim-center",
-  "main": "worker/v7-entry.js",
+  "main": "worker/v8-runtime.js",
   "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {

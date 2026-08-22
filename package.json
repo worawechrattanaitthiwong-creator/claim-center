@@ -1,13 +1,13 @@
 {
   "name": "claim-center",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "private": true,
   "type": "module",
-  "description": "Claim Center Collaboration V7 on Cloudflare Workers + D1",
+  "description": "Claim Center Store and DC Operations on Cloudflare Workers + D1",
   "engines": {"node": ">=22.5.0"},
   "scripts": {
-    "check": "node --check worker/v5-entry.js && node --check worker/v7-entry.js && node --check site/app.js",
-    "test": "node -e \"import('./worker/v7-entry.js').then(m=>{if(m.CLAIM_HEADERS.length!==43)throw new Error('A:AQ must be 43 columns');console.log('CCD A:AQ contract ok')})\" && node test/hardening-check.mjs && node test/v7-contract.mjs",
+    "check": "node --check worker/v5-entry.js && node --check worker/v7-entry.js && node --check worker/v8-entry.js && node --check worker/v8-runtime.js && node --check site/app.js && node --check site/v8.js",
+    "test": "node test/hardening-check.mjs && node test/v7-contract.mjs && node test/v8-contract.mjs",
     "dev": "wrangler dev",
     "db:migrate:remote": "wrangler d1 migrations apply claim-center --remote",
     "deploy": "npm run db:migrate:remote && wrangler deploy"
