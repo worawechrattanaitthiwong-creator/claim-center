@@ -7,7 +7,10 @@ const css = fs.readFileSync('site/v8-plus.css','utf8');
 const migration = fs.readFileSync('migrations/0013_claim_center_ops_pack.sql','utf8');
 const compat = fs.readFileSync('site/v8-compat.js','utf8');
 const v8 = fs.readFileSync('site/v8.js','utf8');
+const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+const wrangler = fs.readFileSync('wrangler.jsonc','utf8');
 
+const deploy = pkg.scripts?.deploy || '';
 const checks = [
   ['isolated plus route', runtime.includes("url.pathname.startsWith('/api/v8/plus/')") && runtime.includes("import plus from './v8-plus.js'")],
   ['plus UI loads before V8', runtime.includes('PLUS_SCRIPT') && runtime.includes('html.replace(v8Tag, `${PLUS_SCRIPT}${v8Tag}`)')],
@@ -15,6 +18,9 @@ const checks = [
   ['sla aging', api.includes('SLA_HOURS = 24') && ui.includes('เกิน SLA')],
   ['notification center enhancement', ui.includes('renderNotificationCenterPlus') && ui.includes('data-plus-notify-case')],
   ['r2 evidence model', api.includes('env.EVIDENCE.put') && migration.includes('CREATE TABLE IF NOT EXISTS store_case_evidence') && ui.includes('compressImage')],
+  ['r2 draft binding stays isolated', wrangler.includes('"binding": "EVIDENCE"') && wrangler.includes('"r2_buckets"')],
+  ['deploy provisions before migration', deploy.startsWith('wrangler deploy && npm run db:migrate:remote') && deploy.endsWith('&& wrangler deploy')],
+  ['wrangler supports provisioning', String(pkg.devDependencies?.wrangler || '').includes('4.45')],
   ['ticket timeline', api.includes('timeline = [') && ui.includes('ประวัติ Ticket')],
   ['global search', api.includes("'/api/v8/plus/search'") && ui.includes('plusGlobalInput')],
   ['data quality warnings', api.includes('qualityWarnings') && ui.includes('storeDraftWarnings')],
