@@ -1,16 +1,22 @@
 const runtimeStyle=document.createElement('link');
 runtimeStyle.rel='stylesheet';
-runtimeStyle.href='/v5-extra.css?v=20260822-v5-loginfix1';
+runtimeStyle.href='/v5-extra.css?v=20260822-v5-loginfix2';
 document.head.appendChild(runtimeStyle);
 
-// Keep the sign-in surface professional: never expose a real account as UI guidance.
+// Professional sign-in surface: do not expose or prefill a real account.
 const loginUser=document.getElementById('loginUsername');
 if(loginUser){
+  loginUser.value='';
   loginUser.placeholder='กรอก Username หรือรหัสพนักงาน';
+  loginUser.autocomplete='off';
   loginUser.removeAttribute('value');
 }
 const loginPass=document.getElementById('loginPassword');
-if(loginPass) loginPass.placeholder='กรอกรหัสผ่าน';
+if(loginPass){
+  loginPass.value='';
+  loginPass.placeholder='กรอกรหัสผ่าน';
+  loginPass.autocomplete='off';
+}
 
 const buildNode=document.getElementById('loginBuild');
 if(buildNode){
@@ -26,7 +32,7 @@ if(buildNode){
     if(value==='unavailable'){
       buildNode.textContent='ไม่สามารถเชื่อมต่อระบบ';
       buildNode.style.color='#e44b60';
-    }else if(value && value!=='checking…' && value!=='กำลังเชื่อมต่อ…'){
+    }else if(value && value!=='checking…' && value!=='กำลังเชื่อมต่อ…' && value!=='ไม่สามารถเชื่อมต่อระบบ'){
       buildNode.textContent='พร้อมใช้งาน';
       buildNode.style.color='#1ca676';
     }
@@ -34,9 +40,9 @@ if(buildNode){
 }
 
 const files=[
-  '/app-core-v5.js?v=20260822-v5-loginfix1',
-  '/claim-workspace-v5.js?v=20260822-v5-loginfix1',
-  '/admin-v5.js?v=20260822-v5-loginfix1'
+  '/app-core-v5.js?v=20260822-v5-loginfix2',
+  '/claim-workspace-v5.js?v=20260822-v5-loginfix2',
+  '/admin-v5.js?v=20260822-v5-loginfix2'
 ];
 
 try{
@@ -47,8 +53,7 @@ try{
   }));
   (0,eval)(parts.join('\n\n'));
 
-  // On mobile/custom tabs DOMContentLoaded can already be finished while the
-  // runtime chunks are downloading. Start immediately in that case.
+  // Mobile/custom tabs may finish DOMContentLoaded while runtime chunks load.
   if(document.readyState!=='loading' && typeof globalThis.init==='function'){
     queueMicrotask(()=>globalThis.init());
   }
@@ -61,6 +66,7 @@ try{
   const button=document.querySelector('.login-btn');
   if(button){
     button.disabled=true;
-    button.querySelector('span').textContent='กำลังแก้ไขการเชื่อมต่อระบบ';
+    const label=button.querySelector('span');
+    if(label)label.textContent='ระบบยังไม่พร้อมใช้งาน';
   }
 }
