@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "claim-center",
-  "main": "worker/v8-runtime.js",
+  "main": "worker/evidence-runtime.js",
   "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -16,8 +16,15 @@
     "database_id": "cd7f29e7-5ee3-4014-9147-c6e9b7fc3c23",
     "migrations_dir": "migrations"
   }],
-  "r2_buckets": [{
-    "binding": "EVIDENCE"
+  "durable_objects": {
+    "bindings": [{
+      "name": "EVIDENCE_DO",
+      "class_name": "EvidenceStore"
+    }]
+  },
+  "migrations": [{
+    "tag": "v1-evidence-free",
+    "new_sqlite_classes": ["EvidenceStore"]
   }],
   "vars": {"SESSION_HOURS":"10"},
   "observability": {"enabled":true}
