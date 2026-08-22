@@ -1,0 +1,51 @@
+name: Assemble Development PR
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  assemble:
+    if: github.event.pull_request.head.ref == 'development'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 0
+      - name: Assemble staged patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f tools/.latest-patch/entry-00.patch ]]; then
+            cat tools/.latest-patch/entry-00.patch tools/.latest-patch/entry-01.patch tools/.latest-patch/entry-02.patch > /tmp/entry.patch
+            cat tools/.latest-patch/ui-00.patch tools/.latest-patch/ui-01.patch tools/.latest-patch/ui-02.patch tools/.latest-patch/ui-03.patch > /tmp/ui.patch
+            git apply --check /tmp/entry.patch
+            git apply --check /tmp/ui.patch
+            git apply --check tools/.latest-patch/css-00.patch
+            git apply --check tools/.latest-patch/package.patch
+            git apply /tmp/entry.patch
+            git apply /tmp/ui.patch
+            git apply tools/.latest-patch/css-00.patch
+            git apply tools/.latest-patch/package.patch
+            rm -rf tools/.latest-patch
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate assembled application
+        run: npm ci && npm run check && npm test
+      - name: Commit assembled application
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "Development source already assembled."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: assemble latest Store DC workflow"
+          git push origin HEAD:development
