@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Wait for Store/DC Workflow V8.1
+      - name: Wait for Store/DC Workflow V8.1 observer repair
         shell: bash
         run: |
           set -euo pipefail
@@ -23,18 +23,21 @@ jobs:
             BUILD=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/build" || true)
             HEALTH=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/api/health" || true)
             HTML=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/" || true)
-            V8=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8.js?v=20260822-loginfix1&smoke=login" || true)
-            COMPAT=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8-compat.js?v=20260822-login2&smoke=login" || true)
+            V8=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8.js?v=20260822-observerfix1&smoke=observer" || true)
+            COMPAT=$(curl -fsS --connect-timeout 10 --max-time 20 "$BASE/v8-compat.js?v=20260822-observerfix1&smoke=observer" || true)
             if [[ "$BUILD" == *"2026-08-22-store-dc-workflow-v8"* ]] \
               && [[ "$HEALTH" == *'"status":"success"'* ]] \
               && [[ "$HTML" == *"Claim Center · Store & DC Operations"* ]] \
               && [[ "$HTML" == *"Claim Workbench"* ]] \
               && [[ "$HTML" == *"Store Queue"* ]] \
-              && [[ "$HTML" == *"v8.js?v=20260822-loginfix1"* ]] \
-              && [[ "$HTML" == *"v8-compat.js?v=20260822-login2"* ]] \
+              && [[ "$HTML" == *"v8.js?v=20260822-observerfix1"* ]] \
+              && [[ "$HTML" == *"v8-compat.js?v=20260822-observerfix1"* ]] \
               && [[ "$HTML" != *"CCD columns A:AQ"* ]] \
-              && [[ "$V8" == *"LOGIN_UI_FREEZE_FIX_20260822"* ]] \
-              && [[ "$V8" != *"obs.observe(loginBuild"* ]] \
+              && [[ "$V8" == *"const syncLoginBuild = () =>"* ]] \
+              && [[ "$V8" == *"if (current !== 'พร้อมใช้งาน') loginBuild.textContent = 'พร้อมใช้งาน';"* ]] \
+              && [[ "$V8" == *"if (after !== before) preview.textContent = after;"* ]] \
+              && [[ "$V8" != *"if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent = 'พร้อมใช้งาน';"* ]] \
+              && [[ "$V8" != *"preview.textContent = preview.textContent.replace"* ]] \
               && [[ "$V8" == *"1 Transport = 1 Ticket"* ]] \
               && [[ "$V8" == *"ค้นหาด้วย Transport"* ]] \
               && [[ "$V8" == *"ไม่จำเป็นต้องจำ Article"* ]] \
@@ -42,16 +45,19 @@ jobs:
               && [[ "$V8" == *"Store Data · Read only"* ]] \
               && [[ "$V8" == *"Backup & Restore"* ]] \
               && [[ "$V8" == *"Dropdown Settings"* ]] \
+              && [[ "$COMPAT" == *"const sameOptions = currentValues.length === desiredValues.length"* ]] \
+              && [[ "$COMPAT" == *"observer.disconnect();"* ]] \
+              && [[ "$COMPAT" == *"observeDropdownContainer"* ]] \
               && [[ "$COMPAT" == *"Decision สำหรับทั้ง Claim"* ]] \
               && [[ "$COMPAT" == *"oldForm.cloneNode(true)"* ]] \
               && [[ "$COMPAT" == *"ไม่สามารถยืนยัน Session หลังเข้าสู่ระบบ"* ]] \
               && [[ "$COMPAT" == *"Decision Master"* ]]; then
-              echo "Production V8.1 login UI fix is live${EVENT_NAME:+ ($EVENT_NAME)}"
+              echo "Production observer loop repair is live${EVENT_NAME:+ ($EVENT_NAME)}"
               echo "$BUILD"
               ok=1
               break
             fi
-            echo "Attempt $i: production login fix not ready: ${BUILD:0:180}"
+            echo "Attempt $i: production observer repair not ready: ${BUILD:0:180}"
             sleep 10
           done
           test "$ok" = "1"
