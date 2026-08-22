@@ -3,6 +3,8 @@ import runtime from './v8-runtime.js';
 const MAX_BYTES = 1200000;
 const CHUNK_BYTES = 64 * 1024;
 const TTL_MS = 35 * 24 * 60 * 60 * 1000;
+const FINAL_UI_STYLE = '<link rel="stylesheet" href="/final-ui.css?v=complete">';
+const FINAL_UI_SCRIPT = '<script type="module" src="/final-ui.js?v=complete"></script>';
 
 export class EvidenceStore {
   constructor(ctx) {
@@ -105,8 +107,29 @@ function withEvidence(env) {
   return Object.assign(Object.create(env), { EVIDENCE });
 }
 
+async function withFinalUi(request, response) {
+  if (request.method === 'HEAD' || !response?.ok) return response;
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('text/html')) return response;
+
+  let html = await response.text();
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>Claim Center · Store & DC Operations</title>');
+  if (!html.includes('/final-ui.css')) html = html.replace('</head>', `${FINAL_UI_STYLE}</head>`);
+  if (!html.includes('/final-ui.js')) html = html.replace('</body>', `${FINAL_UI_SCRIPT}</body>`);
+
+  const headers = new Headers(response.headers);
+  headers.delete('content-length');
+  headers.delete('etag');
+  return new Response(html, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
 export default {
-  fetch(request, env, ctx) {
-    return runtime.fetch(request, withEvidence(env), ctx);
+  async fetch(request, env, ctx) {
+    const response = await runtime.fetch(request, withEvidence(env), ctx);
+    return withFinalUi(request, response);
   }
 };
