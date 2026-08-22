@@ -1,0 +1,19 @@
+diff --git a/wrangler.jsonc b/wrangler.jsonc
+--- a/wrangler.jsonc
++++ b/wrangler.jsonc
+@@ -16,9 +16,12 @@
+     "database_id": "cd7f29e7-5ee3-4014-9147-c6e9b7fc3c23",
+     "migrations_dir": "migrations"
+   }],
+-  "r2_buckets": [{
+-    "binding": "EVIDENCE"
+-  }],
++  "durable_objects": {
++    "bindings": [{"name":"EVIDENCE_STORE","class_name":"EvidenceStore"}]
++  },
++  "migrations": [
++    {"tag":"evidence-store-v1","new_sqlite_classes":["EvidenceStore"]}
++  ],
+   "vars": {"SESSION_HOURS":"10"},
+   "observability": {"enabled":true}
+ }
