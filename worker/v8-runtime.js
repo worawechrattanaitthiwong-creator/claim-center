@@ -1,8 +1,11 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import v8 from './v8-entry.js';
+import plus from './v8-plus.js';
 
 const COOKIE = 'claim_session';
 const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-observerfix1"></script>';
+const PLUS_SCRIPT = '<script type="module" src="/v8-plus.js?v=20260822-ops12"></script>';
+const PLUS_STYLE = '<link rel="stylesheet" href="/v8-plus.css?v=20260822-ops12">';
 const V8_SCRIPT_FROM = '/v8.js?v=20260822-v8';
 const V8_SCRIPT_TO = '/v8.js?v=20260822-observerfix1';
 
@@ -18,6 +21,18 @@ export default {
         return await reliableLogin(request, env, url);
       } catch (error) {
         return json({ status: 'error', message: error?.publicMessage || error?.message || 'เข้าสู่ระบบไม่สำเร็จ' }, error?.status || 500);
+      }
+    }
+
+    // Additive Claim Center operations pack. It is routed before V8 so the core
+    // Claim/Store/Decision behavior remains untouched.
+    if (url.pathname.startsWith('/api/v8/plus/')) {
+      try {
+        const user = await requireUser(request, env);
+        if (!['GET', 'HEAD'].includes(method)) checkOrigin(request, url);
+        return await plus(request, env, user, url);
+      } catch (error) {
+        return json({ status:'error', message:error?.publicMessage || error?.message || 'ดำเนินการไม่สำเร็จ' }, error?.status || 500);
       }
     }
 
@@ -50,6 +65,11 @@ export default {
       if (response.ok && type.includes('text/html')) {
         let html = await response.text();
         html = html.replaceAll(V8_SCRIPT_FROM, V8_SCRIPT_TO);
+        if (!html.includes('/v8-plus.css')) html = html.replace('</head>', `${PLUS_STYLE}</head>`);
+        if (!html.includes('/v8-plus.js')) {
+          const v8Tag = `<script type="module" src="${V8_SCRIPT_TO}"></script>`;
+          html = html.replace(v8Tag, `${PLUS_SCRIPT}${v8Tag}`);
+        }
         if (!html.includes('/v8-compat.js')) html = html.replace('</body>', `${COMPAT_SCRIPT}</body>`);
         const headers = new Headers(response.headers);
         headers.set('content-type', 'text/html; charset=utf-8');
