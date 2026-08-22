@@ -21,6 +21,11 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          index=Path('site/index.html')
+          html=index.read_text()
+          html=html.replace('<small id="profileUser">2030164</small>','<small id="profileUser">—</small>')
+          index.write_text(html)
+
           src=Path('.github/workflows/hardening-release.yml').read_text().splitlines()
           start=next(i for i,x in enumerate(src) if x.strip()=='- name: Apply security, data integrity and runtime cleanup')
           runline=next(i for i in range(start+1,len(src)) if src[i].strip()=='run: |')
