@@ -1,29 +1,21 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "claim-center",
-  "main": "worker/v5-entry.js",
+  "main": "worker/v7-entry.js",
   "compatibility_date": "2026-08-22",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./site",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "claim-center",
-      "database_id": "cd7f29e7-5ee3-4014-9147-c6e9b7fc3c23",
-      "migrations_dir": "migrations"
-    }
-  ],
-  "vars": {
-    "SESSION_HOURS": "10"
-  },
-  "observability": {
-    "enabled": true
-  }
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "claim-center",
+    "database_id": "cd7f29e7-5ee3-4014-9147-c6e9b7fc3c23",
+    "migrations_dir": "migrations"
+  }],
+  "vars": {"SESSION_HOURS":"10"},
+  "observability": {"enabled":true}
 }
