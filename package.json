@@ -1,16 +1,20 @@
 {
-  "name":"claim-center",
-  "version":"5.0.0",
-  "private":true,
-  "type":"module",
-  "description":"Claim Center Global Operations V5 — clean CCD CLAIM workflow on Cloudflare Workers + D1",
-  "engines":{"node":">=22.5.0"},
-  "scripts":{
-    "check":"node --check worker/v5-entry.js && node --check site/app.js",
-    "test":"node -e \"import('./worker/v5-entry.js').then(m=>{if(m.CLAIM_HEADERS.length!==43)throw new Error('A:AQ must be 43 columns');if(m.CLAIM_HEADERS[20]!=='Ship Date'||m.CLAIM_HEADERS[24]!=='Claim NO'||m.CLAIM_HEADERS[25]!=='Reference_No.'||m.CLAIM_HEADERS[42]!=='Year')throw new Error('CCD column contract moved');console.log('CCD A:AQ contract ok')})\" && node -e \"const fs=require('fs');const h=fs.readFileSync('site/index.html','utf8');for(const x of ['Command Center','Claim Workspace','Validation Center','Reference Ledger','User Access','Audit Trail'])if(!h.includes(x))throw new Error('Missing V5 UI: '+x);if(h.includes('Pivot Table'))throw new Error('Pivot must not exist');console.log('Global Ops UI contract ok')\"",
-    "dev":"wrangler dev",
-    "db:migrate:remote":"wrangler d1 migrations apply claim-center --remote",
-    "deploy":"npm run db:migrate:remote && wrangler deploy"
+  "name": "claim-center",
+  "version": "5.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claim Center Global Operations V5 — clean CCD CLAIM workflow on Cloudflare Workers + D1",
+  "engines": {
+    "node": ">=22.5.0"
   },
-  "devDependencies":{"wrangler":"^4.0.0"}
+  "scripts": {
+    "check": "node --check worker/v5-entry.js && node --check site/app.js",
+    "test": "node -e \"import('./worker/v5-entry.js').then(m=>{if(m.CLAIM_HEADERS.length!==43)throw new Error('A:AQ must be 43 columns');if(m.CLAIM_HEADERS[20]!=='Ship Date'||m.CLAIM_HEADERS[24]!=='Claim NO'||m.CLAIM_HEADERS[25]!=='Reference_No.'||m.CLAIM_HEADERS[42]!=='Year')throw new Error('CCD column contract moved');console.log('CCD A:AQ contract ok')})\" && node -e \"const fs=require('fs');const h=fs.readFileSync('site/index.html','utf8');for(const x of ['Command Center','Claim Workspace','Validation Center','Reference Ledger','User Access','Audit Trail'])if(!h.includes(x))throw new Error('Missing V5 UI: '+x);if(h.includes('Pivot Table'))throw new Error('Pivot must not exist');console.log('Global Ops UI contract ok')\" && node test/hardening-check.mjs",
+    "dev": "wrangler dev",
+    "db:migrate:remote": "wrangler d1 migrations apply claim-center --remote",
+    "deploy": "npm run db:migrate:remote && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
 }

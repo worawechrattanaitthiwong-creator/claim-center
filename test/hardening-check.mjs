@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+const worker=fs.readFileSync('worker/v5-entry.js','utf8');
+const app=fs.readFileSync('site/app.js','utf8');
+const html=fs.readFileSync('site/index.html','utf8');
+const wrangler=fs.readFileSync('wrangler.jsonc','utf8');
+for(const [name,text] of [['worker',worker],['index',html],['wrangler',wrangler]]) if(text.includes('2030164')) throw new Error(`Public admin username leaked in ${name}`);
+if(/\beval\s*\(/.test(app)) throw new Error('eval() is forbidden in site/app.js');
+if(!app.includes('__CLAIM_V6_LOADER__')) throw new Error('normal-script V6 loader missing');
+if(!worker.includes('login_rate_limits')||!worker.includes('LOGIN_MAX_FAILURES')) throw new Error('login rate limit missing');
+if(!worker.includes("checkOrigin(req,url);return login")||!worker.includes("checkOrigin(req,url);return logout")) throw new Error('auth Origin check missing');
+if(!worker.includes("/^[+-]?\\d+\\.0+$/")) throw new Error('Excel Store Code normalization missing');
+if(!worker.includes('roundMoney(r.skuCost*num(r.claimQty))')) throw new Error('money rounding missing');
+for(const f of ['worker/main.js','worker/contract-entry.js','site/app-core.js','site/app-contract.js','site/ux-runtime.js']) if(fs.existsSync(f)) throw new Error(`obsolete file still exists: ${f}`);
+console.log('Security + data integrity hardening contract ok');
