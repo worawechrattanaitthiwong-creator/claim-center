@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 const runtime = fs.readFileSync('worker/v8-runtime.js','utf8');
+const evidenceRuntime = fs.readFileSync('worker/evidence-runtime.js','utf8');
 const api = fs.readFileSync('worker/v8-plus.js','utf8');
 const ui = fs.readFileSync('site/v8-plus.js','utf8');
 const css = fs.readFileSync('site/v8-plus.css','utf8');
@@ -17,8 +18,8 @@ const checks = [
   ['dashboard metrics', api.includes("'/api/v8/plus/dashboard'") && ui.includes('CLAIM OPERATIONS PULSE')],
   ['sla aging', api.includes('SLA_HOURS = 24') && ui.includes('เกิน SLA')],
   ['notification center enhancement', ui.includes('renderNotificationCenterPlus') && ui.includes('data-plus-notify-case')],
-  ['r2 evidence model', api.includes('env.EVIDENCE.put') && migration.includes('CREATE TABLE IF NOT EXISTS store_case_evidence') && ui.includes('compressImage')],
-  ['r2 draft binding stays isolated', wrangler.includes('"binding": "EVIDENCE"') && wrangler.includes('"r2_buckets"')],
+  ['evidence API contract preserved', api.includes('env.EVIDENCE.put') && migration.includes('CREATE TABLE IF NOT EXISTS store_case_evidence') && ui.includes('compressImage')],
+  ['free-tier evidence adapter', evidenceRuntime.includes('export class EvidenceStore') && evidenceRuntime.includes('EVIDENCE_DO') && wrangler.includes('"new_sqlite_classes"') && !wrangler.includes('"r2_buckets"')],
   ['deploy provisions before migration', deploy.startsWith('wrangler deploy && npm run db:migrate:remote') && deploy.endsWith('&& wrangler deploy')],
   ['wrangler supports provisioning', String(pkg.devDependencies?.wrangler || '').includes('4.45')],
   ['ticket timeline', api.includes('timeline = [') && ui.includes('ประวัติ Ticket')],
