@@ -52,6 +52,7 @@ jobs:
         run: |
           git config user.name "claim-center-hardening-bot"
           git config user.email "actions@users.noreply.github.com"
+          git checkout -- .github/workflows/production-smoke.yml
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to commit"
