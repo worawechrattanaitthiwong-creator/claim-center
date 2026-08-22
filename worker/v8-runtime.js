@@ -2,9 +2,9 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 import v8 from './v8-entry.js';
 
 const COOKIE = 'claim_session';
-const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-login2"></script>';
+const COMPAT_SCRIPT = '<script type="module" src="/v8-compat.js?v=20260822-observerfix1"></script>';
 const V8_SCRIPT_FROM = '/v8.js?v=20260822-v8';
-const V8_SCRIPT_TO = '/v8.js?v=20260822-loginfix1';
+const V8_SCRIPT_TO = '/v8.js?v=20260822-observerfix1';
 
 export default {
   async fetch(request, env) {

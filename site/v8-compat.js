@@ -83,7 +83,12 @@ function setSelectOptions(el, category, fallback=[], defaultValue='') {
   const old = el.value;
   const values = optionValues(category);
   const list = values.length ? values : fallback;
-  el.innerHTML = '<option value="">— เลือก —</option>' + list.map(v => `<option value="${escHtml(v)}">${escHtml(v)}</option>`).join('');
+  const desiredValues = ['', ...list.map(String)];
+  const currentValues = [...el.options].map(option => option.value);
+  const sameOptions = currentValues.length === desiredValues.length && currentValues.every((value, index) => value === desiredValues[index]);
+  if (!sameOptions) {
+    el.innerHTML = '<option value="">— เลือก —</option>' + list.map(v => `<option value="${escHtml(v)}">${escHtml(v)}</option>`).join('');
+  }
   if (old && list.includes(old)) el.value = old;
   else if (defaultValue && list.includes(defaultValue)) el.value = defaultValue;
 }
@@ -186,17 +191,24 @@ function installLegacyClaimWorkspace() {
     document.head.append(style);
   }
 
-  const rows = q('#decisionRows');
-  if (rows) new MutationObserver(() => {
-    syncVisibleDropdowns();
-    updateLegacySummary();
-  }).observe(rows, { childList:true, subtree:true });
+  const observeDropdownContainer = (element, afterSync=null) => {
+    if (!element) return;
+    const options = { childList:true, subtree:true };
+    const observer = new MutationObserver(() => {
+      observer.disconnect();
+      try {
+        syncVisibleDropdowns();
+        if (afterSync) afterSync();
+      } finally {
+        observer.observe(element, options);
+      }
+    });
+    observer.observe(element, options);
+  };
 
-  const detail = q('#detailFields');
-  if (detail) new MutationObserver(() => syncVisibleDropdowns()).observe(detail, { childList:true, subtree:true });
-
-  const storeItems = q('#storeItemRows');
-  if (storeItems) new MutationObserver(() => syncVisibleDropdowns()).observe(storeItems, { childList:true, subtree:true });
+  observeDropdownContainer(q('#decisionRows'), updateLegacySummary);
+  observeDropdownContainer(q('#detailFields'));
+  observeDropdownContainer(q('#storeItemRows'));
 
   loadUnifiedOptions();
 }
