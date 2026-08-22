@@ -40,6 +40,13 @@ s = s.replace('/v8-compat.js?v=20260822-login2', '/v8-compat.js?v=20260822-obser
 s = s.replace('/v8.js?v=20260822-loginfix1', '/v8.js?v=20260822-observerfix1')
 runtime.write_text(s)
 
+legacy_contract = Path('test/login-freeze-contract.mjs')
+if legacy_contract.exists():
+    s = legacy_contract.read_text()
+    s = s.replace("runtime.includes('20260822-loginfix1')", "runtime.includes('20260822-observerfix1')")
+    s = s.replace("runtime.includes('20260822-login2')", "runtime.includes('20260822-observerfix1')")
+    legacy_contract.write_text(s)
+
 Path('test/observer-loop-contract.mjs').write_text("""import fs from 'node:fs';\nconst v8 = fs.readFileSync('site/v8.js','utf8');\nconst compat = fs.readFileSync('site/v8-compat.js','utf8');\nconst runtime = fs.readFileSync('worker/v8-runtime.js','utf8');\nconst checks = [\n['login guarded', v8.includes(\"if (current !== 'พร้อมใช้งาน') loginBuild.textContent = 'พร้อมใช้งาน';\")],\n['old login loop removed', !v8.includes(\"if (!/ไม่สามารถ/.test(loginBuild.textContent)) loginBuild.textContent = 'พร้อมใช้งาน';\")],\n['export guarded', v8.includes('if (after !== before) preview.textContent = after;')],\n['old export loop removed', !v8.includes('preview.textContent = preview.textContent.replace')],\n['options idempotent', compat.includes('const sameOptions = currentValues.length === desiredValues.length') && compat.includes('if (!sameOptions)')],\n['observer disconnects', compat.includes('observer.disconnect();') && compat.includes('observeDropdownContainer')],\n['cache bust current', runtime.includes('20260822-observerfix1')]\n];\nfor (const [name, ok] of checks) { if (!ok) { console.error('FAIL:', name); process.exitCode=1; } else console.log('PASS:', name); }\n""")
 
 pkg = Path('package.json')
