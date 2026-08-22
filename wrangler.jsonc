@@ -16,6 +16,9 @@
     "database_id": "cd7f29e7-5ee3-4014-9147-c6e9b7fc3c23",
     "migrations_dir": "migrations"
   }],
+  "r2_buckets": [{
+    "binding": "EVIDENCE"
+  }],
   "vars": {"SESSION_HOURS":"10"},
   "observability": {"enabled":true}
 }
