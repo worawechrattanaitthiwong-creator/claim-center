@@ -1,0 +1,108 @@
+diff --git a/worker/v8-plus.js b/worker/v8-plus.js
+--- a/worker/v8-plus.js
++++ b/worker/v8-plus.js
+@@ -1,6 +1,8 @@
+ const SLA_HOURS = 24;
+ const OPEN_STATUSES = new Set(['SUBMITTED','UNDER_REVIEW','PENDING','RETURNED_TO_STORE','DISPUTED']);
+ const TERMINAL_STATUSES = new Set(['ACCEPT','REJECT','PARTIAL','CLOSED']);
++const EVIDENCE_MAX_BYTES = 140000;
++const EVIDENCE_RETENTION_DAYS = 35;
+ 
+ export default async function handlePlus(request, env, user, url) {
+   const method = request.method.toUpperCase();
+@@ -10,7 +12,7 @@
+   if (path === '/api/v8/plus/search' && method === 'GET') return globalSearch(env, user, url);
+   if (path === '/api/v8/plus/audit' && method === 'GET') return auditList(env, user, url);
+   if (path === '/api/v8/plus/report' && method === 'GET') return reportData(env, user, url);
+-  if (path === '/api/v8/plus/evidence/status' && method === 'GET') return json({ status:'success', enabled:Boolean(env.EVIDENCE), maxFiles:5, maxBytes:1200000 });
++  if (path === '/api/v8/plus/evidence/status' && method === 'GET') return json({ status:'success', enabled:Boolean(env.EVIDENCE_STORE), backend:'durable-object', maxFiles:5, maxBytes:EVIDENCE_MAX_BYTES, retentionDays:EVIDENCE_RETENTION_DAYS });
+@@ -139,7 +141,7 @@
+   const c = await getCase(env, user, id);
+   const [items, evidence, audits, notices, messages] = await Promise.all([
+     env.DB.prepare('SELECT * FROM store_case_items WHERE store_case_id=? ORDER BY line_no,id').bind(id).all(),
+-    env.DB.prepare('SELECT id,file_name,content_type,bytes,uploaded_by,uploaded_at FROM store_case_evidence WHERE store_case_id=? ORDER BY id DESC').bind(id).all(),
++    env.DB.prepare('SELECT id,file_name,content_type,bytes,uploaded_by,uploaded_at FROM store_case_evidence WHERE store_case_id=? AND uploaded_at>=? ORDER BY id DESC').bind(id,evidenceCutoff()).all(),
+     env.DB.prepare(`SELECT id,username,action,details,created_at FROM audit_log
+       WHERE entity_key=? OR transport_no=? OR (?<>'' AND claim_no=?) ORDER BY id DESC LIMIT 120`).bind(c.case_no,c.transport_no,c.claim_no,c.claim_no).all(),
+@@ -157,7 +159,7 @@
+     ...(notices.results||[]).map(x=>({type:'notification',at:x.created_at,title:x.title,detail:x.message||'',by:''})),
+     ...(messages.results||[]).map(x=>({type:'message',at:x.created_at,title:`ข้อความจาก ${x.sender_side}`,detail:x.message||'',by:x.sender_name||x.sender_username||''}))
+   ].sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,160);
+-  return json({ status:'success', data:{ case:c, age:withAge(c), warnings, evidence:evidence.results||[], evidenceEnabled:Boolean(env.EVIDENCE), timeline } });
++  return json({ status:'success', data:{ case:c, age:withAge(c), warnings, evidence:evidence.results||[], evidenceEnabled:Boolean(env.EVIDENCE_STORE), evidenceRetentionDays:EVIDENCE_RETENTION_DAYS, timeline } });
+ }
+@@ -179,7 +181,7 @@
+ }
+ 
+ async function uploadEvidence(request, env, user, id) {
+-  if (!env.EVIDENCE) return json({ status:'error', message:'Evidence Storage (R2) ยังไม่ได้เชื่อมกับ Worker' }, 503);
++  if (!env.EVIDENCE_STORE) return json({ status:'error', message:'Evidence Storage ยังไม่พร้อมใช้งาน' }, 503);
+   const c = await getCase(env, user, id, true);
+   evidenceEditor(user, c);
+   const n = await env.DB.prepare('SELECT COUNT(*) n FROM store_case_evidence WHERE store_case_id=?').bind(id).first();
+@@ -190,10 +192,12 @@
+   const file = form.get('file');
+   if (!file || typeof file.arrayBuffer !== 'function') return json({ status:'error', message:'ไม่พบไฟล์รูป' }, 422);
+   const type = text(file.type).toLowerCase();
+   if (!['image/jpeg','image/png','image/webp'].includes(type)) return json({ status:'error', message:'รองรับเฉพาะ JPG, PNG และ WebP' }, 415);
+-  if (Number(file.size || 0) > 1200000) return json({ status:'error', message:'รูปหลังบีบอัดต้องไม่เกิน 1.2 MB' }, 413);
++  if (Number(file.size || 0) > EVIDENCE_MAX_BYTES) return json({ status:'error', message:'รูปหลังบีบอัดต้องไม่เกิน 140 KB' }, 413);
+   const ext = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg';
+-  const key = `case/${id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+-  await env.EVIDENCE.put(key, await file.arrayBuffer(), { httpMetadata:{ contentType:type }, customMetadata:{ caseId:String(id), uploadedBy:user.username } });
++  const key = `${today()}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
++  const stored = await evidenceStore(env,key).fetch(evidenceUrl(key), { method:'PUT', headers:{'content-type':type}, body:await file.arrayBuffer() });
++  if (!stored.ok) return json({ status:'error', message:'ไม่สามารถเก็บรูปหลักฐานได้' }, stored.status || 500);
+   const t = now();
+   const row = await env.DB.prepare(`INSERT INTO store_case_evidence(store_case_id,object_key,file_name,content_type,bytes,uploaded_by,uploaded_at)
+     VALUES(?,?,?,?,?,?,?) RETURNING id`).bind(id,key,text(file.name)||`evidence.${ext}`,type,Number(file.size||0),user.username,t).first();
+@@ -203,16 +207,15 @@
+ }
+ 
+ async function getEvidence(env, user, evidenceId) {
+-  if (!env.EVIDENCE) return json({ status:'error', message:'Evidence Storage (R2) ยังไม่ได้เชื่อมกับ Worker' }, 503);
++  if (!env.EVIDENCE_STORE) return json({ status:'error', message:'Evidence Storage ยังไม่พร้อมใช้งาน' }, 503);
+   const e = await env.DB.prepare(`SELECT e.*,c.store_code,c.case_no FROM store_case_evidence e JOIN store_cases c ON c.id=e.store_case_id WHERE e.id=?`).bind(evidenceId).first();
+   if (!e) return json({ status:'error', message:'ไม่พบรูปหลักฐาน' }, 404);
+   accessCase(user, e);
+-  const object = await env.EVIDENCE.get(e.object_key);
+-  if (!object) return json({ status:'error', message:'ไฟล์หลักฐานไม่อยู่ใน Storage' }, 404);
++  const object = await evidenceStore(env,e.object_key).fetch(evidenceUrl(e.object_key));
++  if (!object.ok) return json({ status:'error', message:'ไฟล์หลักฐานหมดอายุหรือไม่อยู่ใน Storage' }, 404);
+   const headers = new Headers();
+   headers.set('content-type', e.content_type || 'application/octet-stream');
+   headers.set('cache-control', 'private, max-age=300');
+   headers.set('content-disposition', `inline; filename="${safeFileName(e.file_name)}"`);
+-  if (object.httpEtag) headers.set('etag', object.httpEtag);
+   return new Response(object.body, { headers });
+ }
+ 
+ async function deleteEvidence(env, user, evidenceId) {
+-  if (!env.EVIDENCE) return json({ status:'error', message:'Evidence Storage (R2) ยังไม่ได้เชื่อมกับ Worker' }, 503);
++  if (!env.EVIDENCE_STORE) return json({ status:'error', message:'Evidence Storage ยังไม่พร้อมใช้งาน' }, 503);
+   const e = await env.DB.prepare(`SELECT e.*,c.store_code,c.case_no,c.claim_no,c.transport_no,c.status FROM store_case_evidence e JOIN store_cases c ON c.id=e.store_case_id WHERE e.id=?`).bind(evidenceId).first();
+   if (!e) return json({ status:'error', message:'ไม่พบรูปหลักฐาน' }, 404);
+   evidenceEditor(user, e);
+-  await env.EVIDENCE.delete(e.object_key);
++  await evidenceStore(env,e.object_key).fetch(evidenceUrl(e.object_key), {method:'DELETE'});
+   await env.DB.prepare('DELETE FROM store_case_evidence WHERE id=?').bind(evidenceId).run();
+   await audit(env,user.username,'DELETE_CASE_EVIDENCE',e.case_no,e.claim_no,'',e.transport_no,`evidence_id=${evidenceId}`);
+   return json({ status:'success', deleted:true });
+@@ -251,6 +254,20 @@
+   return json({ status:'success', data:rows, summary:{ lines:rows.length, claims:new Set(rows.map(x=>x.claim_no).filter(Boolean)).size, amount:round(rows.reduce((s,x)=>s+Number(x.amount_claim||0),0)) } });
+ }
++
++function evidenceStore(env,key) {
++  const day = text(key).split('/')[0] || today();
++  const id = env.EVIDENCE_STORE.idFromName(`claim-evidence-${day}`);
++  return env.EVIDENCE_STORE.get(id);
++}
++function evidenceUrl(key) {
++  return `https://evidence.internal/object?key=${encodeURIComponent(key)}`;
++}
++function evidenceCutoff() {
++  const d = new Date(Date.now() - EVIDENCE_RETENTION_DAYS * 86400000);
++  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Bangkok',dateStyle:'short',timeStyle:'medium'}).format(d);
++}
+ 
+ function qualityWarnings(c, items) {
