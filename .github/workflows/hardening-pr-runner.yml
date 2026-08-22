@@ -1,0 +1,56 @@
+name: Hardening PR Runner
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Extract and run hardening patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src=Path('.github/workflows/hardening-release.yml').read_text().splitlines()
+          start=next(i for i,x in enumerate(src) if x.strip()=='- name: Apply security, data integrity and runtime cleanup')
+          runline=next(i for i in range(start+1,len(src)) if src[i].strip()=='run: |')
+          end=next(i for i in range(runline+1,len(src)) if src[i].strip()=='- name: Validate hardened source')
+          code=[]
+          for line in src[runline+1:end]:
+              code.append(line[10:] if line.startswith('          ') else line)
+          program='\n'.join(code)+'\n'
+          compile(program,'hardening-extracted.py','exec')
+          exec(program,{'__name__':'__main__'})
+          PY
+
+      - name: Validate hardened source
+        run: |
+          node --check worker/v5-entry.js
+          node --check site/app.js
+          node --check site/app-core-v5.js
+          node --check site/claim-workspace-v5.js
+          node --check site/admin-v5.js
+          node test/hardening-check.mjs
+          npm test
+
+      - name: Commit result to PR branch
+        run: |
+          git config user.name "claim-center-hardening-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "[hardening-bot] Secure auth and normalize claim data"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
