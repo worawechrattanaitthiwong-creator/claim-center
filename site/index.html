@@ -1,119 +1,118 @@
 <!doctype html>
 <html lang="th" data-theme="light">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b1220"><title>Claim Center · Global Operations</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20260822-v5">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-  <script type="module" src="/app.js?v=20260822-v5"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0a1020">
+<title>Claim Center · Collaboration V7</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css?v=20260822-v7">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<script type="module" src="/app.js?v=20260822-v7"></script>
 </head>
 <body>
-<div id="busy" class="busy" hidden><div class="busy-card"><span class="spinner"></span><strong id="busyTitle">กำลังประมวลผล</strong><span id="busyText">กรุณารอสักครู่…</span><div class="progress"><i id="busyBar"></i></div></div></div>
 <div id="toastHost" class="toast-host"></div>
+<div id="busy" class="busy" hidden><div class="busy-card"><span class="spinner"></span><b id="busyTitle">กำลังประมวลผล</b><small id="busyText">กรุณารอสักครู่</small></div></div>
 
 <section id="loginScreen" class="login-screen">
-  <div class="login-ambient a1"></div><div class="login-ambient a2"></div>
-  <div class="login-shell">
-    <div class="login-story">
-      <div class="brand-lockup"><span class="brand-mark">CC</span><div><b>CLAIM CENTER</b><small>GLOBAL OPERATIONS</small></div></div>
-      <div class="story-copy"><span class="eyebrow">CONTROL · VALIDATE · RESOLVE</span><h1>บริหารงานเคลม<br><em>จากข้อมูลสู่การตัดสินใจ</em></h1><p>ระบบเดียวสำหรับเคลม, Reference, Validation, Master Data และภาพรวมการปฏิบัติงาน — ออกแบบใหม่โดยรักษา Logic จาก CCD CLAIM</p></div>
-      <div class="story-grid"><article><b>43</b><span>Excel columns locked A:AQ</span></article><article><b>LIVE</b><span>D1 operational database</span></article><article><b>TRACE</b><span>Audit every critical action</span></article></div>
-      <div class="login-status"><span class="pulse"></span><div><b>Operations platform ready</b><small>Cloudflare Workers · D1 · Secure session</small></div></div>
-    </div>
-    <div class="login-panel">
-      <div class="login-card">
-        <div class="login-card-head"><span class="mini-mark">CC</span><div><span class="eyebrow">SECURE ACCESS</span><h2>ยินดีต้อนรับกลับ</h2><p>ลงชื่อเข้าใช้พื้นที่ปฏิบัติงานของคุณ</p></div></div>
-        <form id="loginForm" class="login-form">
-          <label><span>Username / Employee ID</span><div class="input-shell"><i>01</i><input id="loginUsername" autocomplete="username" required placeholder="กรอก Username หรือรหัสพนักงาน"></div></label>
-          <label><span>Password</span><div class="input-shell"><i>••</i><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="••••••••••"></div></label>
-          <button class="btn login-btn" type="submit"><span>เข้าสู่ Claim Center</span><b>→</b></button>
-        </form>
-        <div class="login-meta"><span>Build <b id="loginBuild">checking…</b></span><span id="loginClock"></span></div>
-      </div>
-    </div>
+  <div class="login-glow glow-a"></div><div class="login-glow glow-b"></div>
+  <div class="login-wrap">
+    <section class="login-brand">
+      <div class="logo-row"><span class="logo">CC</span><div><b>CLAIM CENTER</b><small>CONNECTED OPERATIONS</small></div></div>
+      <span class="eyebrow">ONE FLOW · STORE TO DC</span>
+      <h1>งานเคลมที่ทุกฝ่าย<br><em>เห็นสถานะเดียวกัน</em></h1>
+      <p>รับแจ้งจาก Store, ตรวจสอบที่ DC, ตัดสินใจรายสินค้า, ติดตามสถานะและสนทนาในเคสเดียว — โดยคง Business Logic จาก CCD CLAIM</p>
+      <div class="login-points"><article><b>43</b><span>CCD columns A:AQ</span></article><article><b>LIVE</b><span>Store ↔ DC updates</span></article><article><b>TRACE</b><span>Audit & chat history</span></article></div>
+    </section>
+    <section class="login-card">
+      <div class="secure-badge">SECURE WORKSPACE</div><h2>เข้าสู่ระบบ</h2><p>ใช้บัญชีพนักงานหรือบัญชี Store ที่ได้รับสิทธิ์</p>
+      <form id="loginForm">
+        <label>Username / Employee ID<input id="loginUsername" autocomplete="username" placeholder="กรอก Username หรือรหัสพนักงาน" required></label>
+        <label>Password<div class="password-wrap"><input id="loginPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required><button id="togglePass" type="button" class="icon-btn">◉</button></div></label>
+        <button class="btn primary login-btn" type="submit">เข้าสู่ Claim Center <span>→</span></button>
+      </form>
+      <div class="system-line"><span class="dot"></span><span>System</span><b id="loginBuild">กำลังเชื่อมต่อ…</b></div>
+    </section>
   </div>
 </section>
 
-<div id="appShell" class="app-shell" hidden>
-  <aside id="sidebar" class="sidebar">
-    <div class="side-brand"><span class="brand-mark">CC</span><div><b>Claim Center</b><small>Global Operations</small></div><button id="collapseSide" class="icon-btn" title="ย่อเมนู">⇤</button></div>
-    <div class="side-section"><span class="side-label">OPERATIONS</span>
-      <button data-page="dashboard" class="nav active"><i>⌂</i><span>Command Center</span></button>
-      <button data-page="create" class="nav"><i>＋</i><span>Claim Workspace</span></button>
-      <button data-page="claims" class="nav"><i>▤</i><span>Claim Registry</span><b id="navClaimCount" class="nav-badge">0</b></button>
-      <button data-page="validation" class="nav"><i>✓</i><span>Validation Center</span></button>
-      <button data-page="references" class="nav"><i>#</i><span>Reference Ledger</span></button>
-    </div>
-    <div class="side-section"><span class="side-label">INSIGHTS</span>
-      <button data-page="performance" class="nav"><i>↗</i><span>Performance</span></button>
-      <button data-page="audit" class="nav supervisor-only"><i>◎</i><span>Audit Trail</span></button>
-    </div>
-    <div class="side-section"><span class="side-label">ADMINISTRATION</span>
-      <button data-page="masters" class="nav admin-only"><i>◇</i><span>Master Data</span></button>
-      <button data-page="dropdowns" class="nav admin-only"><i>≡</i><span>Decision Master</span></button>
-      <button data-page="users" class="nav admin-only"><i>♙</i><span>User Access</span></button>
-    </div>
-    <div class="side-foot"><div class="side-health"><span class="pulse"></span><div><b>D1 Connected</b><small id="buildBadge">build…</small></div></div><button id="logoutButton" class="nav signout"><i>↪</i><span>ออกจากระบบ</span></button></div>
-  </aside>
+<div id="app" class="app" hidden>
+<aside class="sidebar">
+  <div class="brand"><span class="logo small">CC</span><div><b>Claim Center</b><small id="brandMode">Operations</small></div></div>
+  <div id="portalSwitch" class="portal-switch"><button data-mode="ops" class="active">Operations</button><button data-mode="store">Store Portal</button></div>
+  <nav id="opsNav">
+    <small>OPERATIONS</small>
+    <button data-page="dashboard" class="nav active"><span>⌂</span>Overview</button>
+    <button data-page="workbench" class="nav"><span>＋</span>Claim Workbench</button>
+    <button data-page="queue" class="nav"><span>◫</span>Store Queue <b id="queueBadge" class="badge">0</b></button>
+    <button data-page="registry" class="nav"><span>▤</span>Claim Registry</button>
+    <button data-page="exports" class="nav"><span>⇩</span>Export Studio</button>
+    <small>CONTROL</small>
+    <button data-page="validation" class="nav"><span>✓</span>Validation</button>
+    <button data-page="masters" class="nav admin-only"><span>◇</span>Master Data</button>
+    <button data-page="users" class="nav admin-only"><span>♙</span>User Access</button>
+  </nav>
+  <nav id="storeNav" hidden>
+    <small>STORE PORTAL</small>
+    <button data-page="store-home" class="nav active"><span>⌂</span>My Store</button>
+    <button data-page="store-new" class="nav"><span>＋</span>แจ้งเคลม</button>
+    <button data-page="store-cases" class="nav"><span>▤</span>ติดตามเคส</button>
+  </nav>
+  <div class="side-bottom"><div class="health"><span class="dot"></span><div><b>D1 Connected</b><small id="buildBadge">V7</small></div></div><button id="logout" class="logout">↪ ออกจากระบบ</button></div>
+</aside>
 
-  <main class="main">
-    <header class="topbar">
-      <div class="top-left"><button id="mobileMenu" class="icon-btn mobile-only">☰</button><div><span id="pageEyebrow" class="eyebrow">OPERATIONS OVERVIEW</span><h2 id="pageTitle">Command Center</h2></div></div>
-      <div class="top-actions"><button id="commandButton" class="command-chip"><span>⌕</span><b>ค้นหาด่วน</b><kbd>Ctrl K</kbd></button><button id="themeButton" class="icon-btn" title="Light / Dark">◐</button><button id="profileButton" class="profile-chip"><span id="userAvatar">AD</span><div><b id="displayUser">Admin</b><small id="displayRole">Administrator</small></div><i>⌄</i></button></div>
-    </header>
+<main class="main">
+<header class="topbar"><div><span id="pageEyebrow" class="eyebrow">OPERATIONS</span><h2 id="pageTitle">Overview</h2></div><div class="top-actions"><button id="notifyBtn" class="icon-action">♢<b id="notifyBadge" class="badge">0</b></button><button id="themeBtn" class="icon-action">◐</button><button id="profileBtn" class="profile"><span id="avatar">U</span><div><b id="profileName">User</b><small id="profileMeta">—</small></div></button></div></header>
+<div class="content">
 
-    <div class="page-host">
-      <section id="page-dashboard" class="page active" data-title="Command Center" data-eyebrow="OPERATIONS OVERVIEW">
-        <div class="hero dashboard-hero"><div><span class="eyebrow">REAL-TIME CLAIM OPERATIONS</span><h1>ภาพรวมงานเคลมที่ตัดสินใจได้ทันที</h1><p>หนึ่งหน้าสำหรับเคส, มูลค่า, สถานะ, ผู้รับผิดชอบ และงานล่าสุด</p></div><div class="hero-actions"><select id="dashYear"></select><select id="dashMonth"></select><button id="dashboardRefresh" class="btn secondary">↻ Refresh</button></div></div>
-        <div class="kpi-grid"><article class="kpi"><span>CLAIM CASES</span><strong id="kpiCases">0</strong><small>จำนวน Claim No.</small><i>01</i></article><article class="kpi"><span>CLAIM VALUE</span><strong id="kpiAmount">฿0</strong><small>มูลค่ารวม</small><i>02</i></article><article class="kpi"><span>DATA LINES</span><strong id="kpiLines">0</strong><small>จำนวนรายการสินค้า</small><i>03</i></article><article class="kpi"><span>ACTIVE STORES</span><strong id="kpiStores">0</strong><small>สาขาที่เกี่ยวข้อง</small><i>04</i></article></div>
-        <div class="dash-grid"><article class="panel span-2"><div class="panel-head"><div><span class="eyebrow">DAILY FLOW</span><h3>Claim trend</h3></div><span class="pill">Cases / Day</span></div><div id="trendChart" class="trend-chart empty">ยังไม่มีข้อมูล</div></article><article class="panel"><div class="panel-head"><div><span class="eyebrow">STATUS MIX</span><h3>สถานะเคลม</h3></div></div><div id="statusRing" class="status-ring"><div class="ring"><b>0</b><small>cases</small></div><div id="statusLegend" class="legend"></div></div></article></div>
-        <div class="dash-grid"><article class="panel span-2"><div class="panel-head"><div><span class="eyebrow">LATEST ACTIVITY</span><h3>เคสล่าสุด</h3></div><button class="link-btn" data-go="claims">เปิด Registry →</button></div><div class="table-wrap"><table><thead><tr><th>Claim No.</th><th>Transport</th><th>Store</th><th>Status</th><th>WHO</th><th>Amount</th></tr></thead><tbody id="recentCases"></tbody></table></div></article><article class="panel"><div class="panel-head"><div><span class="eyebrow">OWNERSHIP</span><h3>WHO distribution</h3></div></div><div id="whoList" class="metric-list"></div></article></div>
-      </section>
+<section id="page-dashboard" class="page active" data-title="Overview" data-eyebrow="OPERATIONS OVERVIEW">
+  <div class="hero"><div><span class="eyebrow aqua">LIVE CLAIM OPERATIONS</span><h1>เห็นภาพรวมก่อนงานจะค้าง</h1><p>เคสจาก Store, งานที่ DC กำลังตรวจ, มูลค่าเคลม และสถานะรายสินค้าในหน้าจอเดียว</p></div><div class="filters inline"><select id="dashYear"></select><select id="dashMonth"></select><button id="refreshDash" class="btn light">↻ Refresh</button></div></div>
+  <div class="kpis"><article><span>CLAIM CASES</span><strong id="kpiCases">0</strong><small>Claim No. ทั้งหมด</small></article><article><span>CLAIM VALUE</span><strong id="kpiAmount">฿0</strong><small>มูลค่ารวม</small></article><article><span>DATA LINES</span><strong id="kpiLines">0</strong><small>รายการสินค้า</small></article><article class="attention"><span>STORE WAITING</span><strong id="kpiWaiting">0</strong><small>รอ DC ตรวจสอบ</small></article></div>
+  <div class="grid two"><article class="card"><div class="card-head"><div><span class="eyebrow">MONTH PULSE</span><h3>สถานะประจำเดือน</h3></div></div><div id="monthCards" class="month-cards"></div></article><article class="card"><div class="card-head"><div><span class="eyebrow">STORE INBOX</span><h3>งานที่ต้องตอบกลับ</h3></div><button data-go="queue" class="link">เปิด Queue →</button></div><div id="queueMini" class="stack-list"></div></article></div>
+  <article class="card"><div class="card-head"><div><span class="eyebrow">LATEST CLAIMS</span><h3>เคสล่าสุด</h3></div></div><div class="table-wrap"><table><thead><tr><th>Claim No.</th><th>Transport</th><th>Store</th><th>Items</th><th>Status</th><th>Amount</th></tr></thead><tbody id="recentClaims"></tbody></table></div></article>
+</section>
 
-      <section id="page-create" class="page" data-title="Claim Workspace" data-eyebrow="CREATE · REVIEW · DECIDE · SAVE">
-        <div class="workspace-top"><div><span class="eyebrow">CCD CLAIM WORKFLOW</span><h1>สร้างหรือแก้ไขเคลม</h1><p>วางข้อมูลจาก Excel → ตรวจ Master → ตัดสินใจ → บันทึก</p></div><div class="mode-badge"><span id="workMode">NEW CLAIM</span><b id="draftState">Draft ready</b></div></div>
-        <div class="stepper"><div class="step active" data-step="1"><b>1</b><span>Source data</span></div><i></i><div class="step" data-step="2"><b>2</b><span>Master check</span></div><i></i><div class="step" data-step="3"><b>3</b><span>Decision</span></div><i></i><div class="step" data-step="4"><b>4</b><span>Save</span></div></div>
-        <div class="workspace-grid">
-          <article class="panel source-panel"><div class="panel-head"><div><span class="eyebrow">STEP 01</span><h3>วางข้อมูลจาก Excel</h3></div><span id="pasteCount" class="pill">0 rows</span></div><textarea id="claimPaste" class="paste-box" spellcheck="false" placeholder="วางข้อมูล 18 คอลัมน์จาก Excel ที่นี่…&#10;Store Code | Store Name | Claim DC | Received Date | Claim Date | Transport No. | ..."></textarea><div class="button-row"><button id="prepareClaim" class="btn primary">ตรวจและเตรียมข้อมูล →</button><button id="cancelClaim" class="btn ghost">ยกเลิก / ล้างงาน</button></div><div id="draftHint" class="inline-note">ระบบจะเก็บ Draft บนเครื่องนี้อัตโนมัติจนกว่าจะบันทึกหรือยกเลิก</div></article>
-          <aside class="case-side"><article class="case-identity"><span class="eyebrow">CASE IDENTITY</span><dl><div><dt>Transport No.</dt><dd id="metaTransport">—</dd></div><div><dt>Format Type</dt><dd id="metaFormat">—</dd></div><div><dt>Claim No.</dt><dd id="metaClaim">AUTO</dd></div><div><dt>Reference No.</dt><dd id="metaReference">—</dd></div></dl></article><article class="case-total"><span>Total claim value</span><strong id="metaAmount">฿0.00</strong><small id="metaRows">0 items · 0 missing prices</small></article></aside>
-        </div>
-        <article id="decisionPanel" class="panel decision-panel" hidden><div class="panel-head"><div><span class="eyebrow">STEP 03 · DECISION</span><h3>ข้อมูลสำหรับตัดสินใจและบันทึก</h3></div><span id="validationState" class="pill success">MASTER READY</span></div><div class="form-grid">
-          <label><span>Ship Date</span><input id="claimShipDate" type="date"></label><label><span>Claims Reason</span><select id="claimReason"></select></label><label><span>Update status</span><select id="claimStatus"></select></label><label><span>WHO</span><select id="claimWho"></select></label><label><span>Cause Group</span><select id="claimCauseGroup"></select></label><label><span>ROOT CAUSE</span><select id="claimRootCause"></select></label><label><span>Check</span><select id="claimCheck"></select></label><label><span>Remark List</span><select id="claimRemarkList"></select></label><label><span>SC</span><select id="claimSc"></select></label><label><span>Complet SC</span><select id="claimCompleteSc"></select></label><label class="span-2"><span>Remark</span><textarea id="claimRemark" rows="3" placeholder="รายละเอียดเพิ่มเติม…"></textarea></label></div>
-          <div class="button-row sticky-actions"><button id="saveClaim" class="btn primary big">บันทึกเคลม</button><button id="cancelClaim2" class="btn ghost">ยกเลิก</button><span id="saveGuard" class="inline-note">บันทึกสำเร็จแล้วระบบจะล้างฟอร์มและโหลดข้อมูลล่าสุดอัตโนมัติ</span></div>
-        </article>
-        <article id="previewPanel" class="panel" hidden><div class="panel-head"><div><span class="eyebrow">ITEM REVIEW</span><h3>รายการสินค้าที่จะบันทึก</h3></div><span id="claimSummary" class="pill"></span></div><div class="table-wrap tall"><table><thead><tr><th>#</th><th>Store</th><th>Transport</th><th>Article</th><th>Description</th><th>Claim Qty</th><th>SKU cost</th><th>Amount</th></tr></thead><tbody id="claimPreviewBody"></tbody></table></div></article>
-      </section>
+<section id="page-workbench" class="page" data-title="Claim Workbench" data-eyebrow="PREPARE · DECIDE PER ITEM · SAVE">
+  <div class="page-intro"><div><span class="eyebrow">CCD CLAIM WORKBENCH</span><h1>ตัดสินใจได้ถึงระดับรายการสินค้า</h1><p>Claim No. จะถูกจองตั้งแต่ตรวจข้อมูล และ Reference จะเกิดเฉพาะรายการที่ Accept</p></div><button id="clearWork" class="btn ghost">ล้างงาน</button></div>
+  <div class="work-grid"><article class="card"><div class="card-head"><div><span class="eyebrow">SOURCE DATA</span><h3>วางข้อมูลจาก Excel</h3></div><span id="pasteRows" class="chip">0 rows</span></div><textarea id="claimPaste" class="paste" placeholder="วางข้อมูล 18 คอลัมน์จาก Excel…"></textarea><div class="actions"><button id="prepareBtn" class="btn primary">ตรวจ Master และจอง Claim No.</button><button id="cancelWork" class="btn ghost">ยกเลิก</button></div></article>
+  <aside class="identity"><article class="card identity-card"><span class="eyebrow">CASE IDENTITY</span><dl><div><dt>Claim No.</dt><dd id="metaClaim">—</dd></div><div><dt>Transport</dt><dd id="metaTransport">—</dd></div><div><dt>Store</dt><dd id="metaStore">—</dd></div><div><dt>Format</dt><dd id="metaFormat">—</dd></div></dl></article><article class="value-card"><span>Total claim value</span><strong id="metaAmount">฿0.00</strong><small id="metaItems">0 items</small></article></aside></div>
+  <article id="bulkDecision" class="card" hidden><div class="card-head"><div><span class="eyebrow">DEFAULT DECISION</span><h3>ค่าเริ่มต้นสำหรับทุกสินค้า</h3></div><button id="applyAll" class="btn small">นำไปใช้ทุกแถว</button></div><div class="form-grid"><label>Ship Date<input id="globalShip" type="date"></label><label>Claims Reason<select id="globalReason"></select></label><label>Status<select id="globalStatus"></select></label><label>WHO<select id="globalWho"></select></label><label>Cause Group<select id="globalCause"></select></label><label>ROOT CAUSE<select id="globalRoot"></select></label></div></article>
+  <article id="itemDecision" class="card" hidden><div class="card-head"><div><span class="eyebrow">ITEM DECISION</span><h3>ปรับสถานะแต่ละรายการได้อิสระ</h3></div><span id="decisionCount" class="chip"></span></div><div class="table-wrap decision-table"><table><thead><tr><th>#</th><th>Article / Description</th><th>Qty</th><th>Amount</th><th>Status</th><th>WHO</th><th>Reference No.</th><th>Detail</th></tr></thead><tbody id="decisionRows"></tbody></table></div><div class="save-bar"><div><b id="decisionSummary">ยังไม่ได้เตรียมข้อมูล</b><small>Reference ถูกจองแบบ unique เมื่อรายการเป็น Accept</small></div><button id="saveClaim" class="btn success">บันทึกเคส</button></div></article>
+</section>
 
-      <section id="page-claims" class="page" data-title="Claim Registry" data-eyebrow="SEARCH · REVIEW · EDIT">
-        <div class="hero compact"><div><span class="eyebrow">CLAIM REGISTRY</span><h1>ค้นหาและจัดการเคสทั้งหมด</h1></div><button id="exportClaims" class="btn secondary">Export A:AQ</button></div>
-        <form id="claimSearch" class="filter-bar"><input id="searchTransport" placeholder="Transport No."><input id="searchReference" placeholder="Reference No."><input id="searchClaim" placeholder="Claim No."><input id="searchStore" placeholder="Store Code"><select id="searchStatus"><option value="">ทุก Status</option><option>Accept</option><option>Pending</option><option>Reject</option></select><button class="btn primary">ค้นหา</button><button id="resetSearch" class="btn ghost" type="button">ล้าง</button></form>
-        <div id="claimGroups" class="claim-list"></div>
-      </section>
+<section id="page-queue" class="page" data-title="Store Queue" data-eyebrow="STORE → DC COLLABORATION">
+  <div class="page-intro"><div><span class="eyebrow">DC INBOX</span><h1>เคสจาก Store ที่รอการตรวจสอบ</h1><p>หลายคนทำงานพร้อมกันได้ ระบบตรวจ version ก่อนอัปเดตเพื่อลดการเขียนทับกัน</p></div><button id="refreshQueue" class="btn ghost">↻ Refresh</button></div>
+  <div id="queueStats" class="mini-kpis"></div><div id="queueList" class="case-grid"></div>
+</section>
 
-      <section id="page-validation" class="page" data-title="Validation Center" data-eyebrow="RUNVALIDATION · CCD CONTRACT">
-        <div class="hero compact"><div><span class="eyebrow">VALIDATION CENTER</span><h1>ตรวจสอบข้อมูลก่อน Process</h1><p>เทียบ Store + Article + Reference กับ Claim Center</p></div><button id="downloadValidation" class="btn secondary" disabled>Download Result</button></div>
-        <div class="two-col"><article class="panel upload-zone"><span class="upload-icon">⇧</span><h3>อัปโหลดไฟล์ Validation</h3><p>รองรับ .xlsx / .xls / .csv</p><input id="validationFile" type="file" accept=".xlsx,.xls,.csv"><b id="validationFileName">ยังไม่ได้เลือกไฟล์</b><button id="runValidation" class="btn primary" disabled>RunValidation</button></article><article class="panel"><div class="panel-head"><div><span class="eyebrow">RESULT</span><h3>Validation summary</h3></div></div><div class="result-kpis"><div><span>Valid</span><strong id="validCount">0</strong></div><div><span>No Valid</span><strong id="invalidCount">0</strong></div></div><p class="muted">ระบบยึด logic จาก CCD: ข้อมูลที่จับคู่ได้จะคืน Transport, Vehicle, Driver, Claim Date และ Claim No.</p></article></div>
-        <article id="validationResult" class="panel" hidden><div class="table-wrap tall"><table><thead><tr><th>#</th><th>Store</th><th>Article</th><th>Reference</th><th>Result</th><th>Transport</th><th>Claim No.</th></tr></thead><tbody id="validationBody"></tbody></table></div></article>
-      </section>
+<section id="page-registry" class="page" data-title="Claim Registry" data-eyebrow="SEARCH · TRACK · REVIEW">
+  <div class="page-intro"><div><span class="eyebrow">CLAIM REGISTRY</span><h1>ข้อมูลเคลมทั้งหมด</h1></div></div>
+  <form id="registryFilter" class="filter-card"><input id="regClaim" placeholder="Claim No."><input id="regTransport" placeholder="Transport"><input id="regStore" placeholder="Store"><select id="regStatus"><option value="">ทุกสถานะ</option><option>Accept</option><option>Pending</option><option>Reject</option></select><button class="btn primary">ค้นหา</button></form><div id="registryList" class="case-grid"></div>
+</section>
 
-      <section id="page-references" class="page" data-title="Reference Ledger" data-eyebrow="CCD · TF TRACEABILITY"><div class="hero compact"><div><span class="eyebrow">REFERENCE LEDGER</span><h1>ประวัติเลข Reference</h1></div><div class="segmented"><button class="active" data-ref="DC">DC / CCD</button><button data-ref="TP">TP / TF</button></div></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Reference</th><th>Claim No.</th><th>Transport</th><th>Store</th><th>Ship Date</th><th>Created by</th></tr></thead><tbody id="referenceBody"></tbody></table></div></article></section>
+<section id="page-exports" class="page" data-title="Export Studio" data-eyebrow="FILTER · PREVIEW · DOWNLOAD">
+  <div class="page-intro"><div><span class="eyebrow">EXPORT STUDIO</span><h1>เลือกข้อมูลก่อนดาวน์โหลด</h1><p>รองรับ XLSX, CSV, JSON และ TSV โดยยังคง A:AQ 43 คอลัมน์</p></div></div>
+  <article class="card"><div class="filter-grid"><label>จากวันที่<input id="exFrom" type="date"></label><label>ถึงวันที่<input id="exTo" type="date"></label><label>ปี<input id="exYear" placeholder="2026"></label><label>เดือน<select id="exMonth"><option value="">ทุกเดือน</option></select></label><label>Status<select id="exStatus"><option value="">ทั้งหมด</option><option>Accept</option><option>Pending</option><option>Reject</option></select></label><label>Cause Group<input id="exCause" placeholder="ทั้งหมด"></label><label>ROOT CAUSE<input id="exRoot" placeholder="ทั้งหมด"></label><label>Store<input id="exStore" placeholder="ทุก Store"></label></div><div class="download-row"><button data-export="xlsx" class="download-card"><b>XLSX</b><span>Excel workbook</span></button><button data-export="csv" class="download-card"><b>CSV</b><span>Comma separated</span></button><button data-export="json" class="download-card"><b>JSON</b><span>System integration</span></button><button data-export="tsv" class="download-card"><b>TSV</b><span>Tab separated</span></button></div><div id="exportPreview" class="muted">เลือกเงื่อนไขแล้วดาวน์โหลดได้ทันที</div></article>
+</section>
 
-      <section id="page-performance" class="page" data-title="Performance" data-eyebrow="DAILY OPERATIONS"><div class="hero compact"><div><span class="eyebrow">PERFORMANCE</span><h1>ผลงานการบันทึกประจำวัน</h1></div><input id="performanceDate" type="date"></div><div id="performanceCards" class="kpi-grid"></div></section>
+<section id="page-validation" class="page" data-title="Validation" data-eyebrow="CCD VALIDATION"><div class="page-intro"><div><span class="eyebrow">VALIDATION</span><h1>ตรวจข้อมูลกับ Claim Center</h1></div></div><article class="card empty-state"><b>Validation Center</b><p>ใช้ Logic เดิมของ CCD และ API เดิม ระบบส่วนนี้ยังคงทำงานร่วมกับ V7</p><input id="validationFile" type="file" accept=".xlsx,.xls,.csv"><button id="runValidation" class="btn primary">Run Validation</button><div id="validationOutput"></div></article></section>
 
-      <section id="page-audit" class="page supervisor-page" data-title="Audit Trail" data-eyebrow="ACCOUNTABILITY · TRACE"><div class="hero compact"><div><span class="eyebrow">AUDIT TRAIL</span><h1>ประวัติการทำงานของระบบ</h1></div><button id="refreshAudit" class="btn secondary">Refresh</button></div><article class="panel"><div class="table-wrap tall"><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>Claim</th><th>Reference</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div></article></section>
+<section id="page-masters" class="page admin-page" data-title="Master Data" data-eyebrow="DATA FOUNDATION"><div class="page-intro"><div><span class="eyebrow">MASTER DATA</span><h1>Master Store & Master Article</h1></div></div><div class="grid two"><article class="card upload"><h3>Master Store</h3><input id="storeFile" type="file" accept=".xlsx,.xls,.csv"><button id="uploadStore" class="btn primary">Upload / Replace</button><small id="storeStatus">—</small></article><article class="card upload"><h3>Master Article · Weekly Replace</h3><input id="articleFile" type="file" accept=".xlsx,.xls,.xlsm"><button id="uploadArticle" class="btn primary">Replace Master Article</button><div class="progress"><i id="articleProgress"></i></div><small id="articleStatus">—</small></article></div></section>
 
-      <section id="page-masters" class="page admin-page" data-title="Master Data" data-eyebrow="DATA FOUNDATION"><div class="hero compact"><div><span class="eyebrow">MASTER DATA HUB</span><h1>ฐานข้อมูลสำหรับคำนวณและเติมข้อมูลอัตโนมัติ</h1></div></div><div class="two-col"><article class="panel upload-zone"><span class="eyebrow">MASTER STORE</span><h3>อัปโหลด Master Store</h3><p>ระบบอ่าน Store Code, Store Name, Format และ Type จากไฟล์ Excel</p><input id="storeFile" type="file" accept=".xlsx,.xls,.csv"><button id="uploadStores" class="btn primary" disabled>Replace / Update Store Master</button><div id="storeStatus" class="status-line">ยังไม่มีข้อมูล</div></article><article class="panel upload-zone"><span class="eyebrow">MASTER ARTICLE · WEEKLY REPLACE</span><h3>อัปโหลด Master Article</h3><p>A=ARTICLE · D=BARCODE · E=DESCRIPTION · L=MANAGE_WEIGHT · AJ=ITEM_VALUE · AN=SEG_DESCRIPTION</p><input id="masterArticleFile" type="file" accept=".xlsx,.xls,.xlsm"><button id="replaceMaster" class="btn primary" disabled>Replace Master Article</button><div class="progress"><i id="masterProgress"></i></div><div id="masterStatus" class="status-line">ยังไม่มีข้อมูล</div></article></div></section>
+<section id="page-users" class="page admin-page" data-title="User Access" data-eyebrow="IDENTITY · ACCESS · STORE SCOPE"><div class="page-intro"><div><span class="eyebrow">USER ACCESS</span><h1>จัดการพนักงานและบัญชี Store</h1><p>ชื่อเล่นจะแสดงในแชทเพื่อให้ Store รู้ว่ากำลังติดต่อกับใคร</p></div><button id="addUser" class="btn primary">+ เพิ่ม User</button></div><article class="card"><div class="table-wrap"><table><thead><tr><th>Username</th><th>ชื่อจริง / ชื่อเล่น</th><th>ประเภท</th><th>Store</th><th>Role</th><th>Status</th><th>Last login</th></tr></thead><tbody id="userRows"></tbody></table></div></article></section>
 
-      <section id="page-dropdowns" class="page admin-page" data-title="Decision Master" data-eyebrow="DROPDOWN GOVERNANCE"><div class="hero compact"><div><span class="eyebrow">DECISION MASTER</span><h1>จัดการ Dropdown ที่ใช้ทั้งระบบ</h1><p>เพิ่ม/ลบได้เองและจะสะท้อนใน Claim Workspace ทันที</p></div></div><div id="dropdownCards" class="option-grid"></div></section>
+<section id="page-store-home" class="page store-page" data-title="My Store" data-eyebrow="STORE CLAIM PORTAL">
+  <div class="store-hero"><div><span class="eyebrow aqua">MY STORE CLAIMS</span><h1 id="storeWelcome">ติดตามทุกเคสได้จากที่เดียว</h1><p>แจ้งเคลม → DC ตรวจ → สนทนา → รับผล → โต้แย้งได้เมื่อ Reject</p></div><button data-go="store-new" class="btn light">+ แจ้งเคลมใหม่</button></div>
+  <div id="storeSummaryCards" class="kpis store-kpis"></div><article class="card"><div class="card-head"><div><span class="eyebrow">RECENT CASES</span><h3>เคสล่าสุดของสาขา</h3></div></div><div id="storeRecent" class="case-grid compact"></div></article>
+</section>
 
-      <section id="page-users" class="page admin-page" data-title="User Access" data-eyebrow="IDENTITY · ROLE · SECURITY"><div class="hero compact"><div><span class="eyebrow">USER ACCESS</span><h1>จัดการผู้ใช้งานและสิทธิ์</h1></div><button id="addUser" class="btn primary">+ เพิ่มผู้ใช้งาน</button></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>User</th><th>Display name</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead><tbody id="userBody"></tbody></table></div></article></section>
-    </div>
-  </main>
-</div>
+<section id="page-store-new" class="page store-page" data-title="แจ้งเคลม" data-eyebrow="STORE SUBMISSION"><div class="page-intro"><div><span class="eyebrow">NEW STORE CLAIM</span><h1>แจ้งเคลมให้ DC ตรวจสอบ</h1></div></div><article class="card"><form id="storeClaimForm"><div class="form-grid"><label>Store Code<input id="storeClaimStore" placeholder="Store Code"></label><label>Transport No.<input id="storeClaimTransport" required></label><label>วันที่<input id="storeClaimDate" type="date"></label><label>หัวข้อ<input id="storeClaimSubject" placeholder="เช่น สินค้าขาดส่ง"></label><label class="span-2">รายละเอียด<textarea id="storeClaimDetails" rows="3"></textarea></label></div><div class="card-head sub"><div><span class="eyebrow">ITEMS</span><h3>รายการสินค้า</h3></div><button id="addStoreItem" type="button" class="btn ghost small">+ เพิ่มรายการ</button></div><div id="storeItemRows" class="store-items"></div><button class="btn primary" type="submit">ส่งเคสให้ DC</button></form></article></section>
 
-<div id="profileMenu" class="profile-menu" hidden><div class="profile-menu-head"><span id="profileAvatar">AD</span><div><b id="profileName">Administrator</b><small id="profileUser">—</small></div></div><button id="editProfile">แก้ไขชื่อแสดงผล</button><button id="changePassword">เปลี่ยนรหัสผ่าน</button><button id="profileLogout">ออกจากระบบ</button></div>
-<div id="commandPalette" class="command-overlay" hidden><div class="command-box"><div class="command-input"><span>⌕</span><input id="commandSearch" placeholder="ไปที่เมนู หรือค้นหา Claim / Transport / Reference…"><kbd>ESC</kbd></div><div id="commandResults" class="command-results"></div></div></div>
-<dialog id="formDialog"><form id="dialogForm" method="dialog"><div class="dialog-head"><div><span class="eyebrow">CLAIM CENTER</span><h3 id="dialogTitle">Form</h3></div><button value="cancel" class="icon-btn">×</button></div><div id="dialogFields" class="dialog-fields"></div><div class="dialog-actions"><button value="cancel" class="btn ghost">ยกเลิก</button><button id="dialogSubmit" value="default" class="btn primary">บันทึก</button></div></form></dialog>
+<section id="page-store-cases" class="page store-page" data-title="ติดตามเคส" data-eyebrow="TRACK · CHAT · DISPUTE"><div class="page-intro"><div><span class="eyebrow">MY CASES</span><h1>สถานะเคสและการสนทนา</h1></div><button id="refreshStoreCases" class="btn ghost">↻ Refresh</button></div><div id="storeCaseList" class="case-grid"></div></section>
+
+</div></main></div>
+
+<aside id="notifyPanel" class="drawer" hidden><div class="drawer-head"><div><span class="eyebrow">NOTIFICATIONS</span><h3>การแจ้งเตือน</h3></div><button id="closeNotify" class="icon-btn">×</button></div><div id="notifyList" class="notify-list"></div><button id="readAll" class="btn ghost full">อ่านทั้งหมดแล้ว</button></aside>
+<dialog id="detailDialog"><div class="dialog-head"><div><span class="eyebrow">ITEM DECISION</span><h3 id="detailTitle">แก้รายละเอียดรายการ</h3></div><button id="closeDetail" class="icon-btn">×</button></div><div id="detailFields" class="form-grid"></div><div class="dialog-actions"><button id="saveDetail" class="btn primary">บันทึกรายการ</button></div></dialog>
+<dialog id="caseDialog"><div class="dialog-head"><div><span class="eyebrow">CASE COLLABORATION</span><h3 id="caseTitle">Case</h3></div><button id="closeCase" class="icon-btn">×</button></div><div id="caseContent"></div></dialog>
+<dialog id="userDialog"><div class="dialog-head"><div><span class="eyebrow">USER ACCESS</span><h3>เพิ่มผู้ใช้งาน</h3></div><button id="closeUser" class="icon-btn">×</button></div><form id="userForm" class="form-grid"><label>Username<input id="newUsername" required></label><label>Password<input id="newPassword" type="password" required placeholder="อย่างน้อย 10 ตัว มีตัวอักษรและตัวเลข"></label><label>ชื่อจริง<input id="newFirstName"></label><label>ชื่อเล่น<input id="newNickname"></label><label>ประเภท User<select id="newUserType"><option value="dc">DC</option><option value="trainer">DC / Trainer</option><option value="store">Store</option><option value="admin">Admin</option></select></label><label>Store Code<input id="newStoreCode" placeholder="จำเป็นสำหรับ Store"></label><label>Role<select id="newRole"><option value="user">User</option><option value="supervisor">Supervisor</option></select></label><button class="btn primary span-2" type="submit">สร้างบัญชี</button></form></dialog>
 </body></html>
