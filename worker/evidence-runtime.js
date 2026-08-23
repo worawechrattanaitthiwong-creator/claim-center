@@ -5,7 +5,7 @@ const CHUNK_BYTES = 64 * 1024;
 const TTL_MS = 35 * 24 * 60 * 60 * 1000;
 const FINAL_UI_STYLE = '<link rel="stylesheet" href="/final-ui.css?v=complete-grid-5">';
 const STORE_SUBMIT_STYLE = '<link rel="stylesheet" href="/store-submit.css?v=complete-grid-5">';
-const STORE_LAYOUT_STYLE = '<link rel="stylesheet" href="/store-layout.css?v=complete-layout">';
+const STORE_LAYOUT_STYLE = '<link rel="stylesheet" href="/store-layout.css?v=complete-layout-2">';
 const FINAL_UI_SCRIPT = '<script type="module" src="/final-ui.js?v=complete-grid-5"></script>';
 const STORE_LAYOUT_SCRIPT = '<script type="module" src="/store-layout.js?v=complete-layout"></script>';
 
