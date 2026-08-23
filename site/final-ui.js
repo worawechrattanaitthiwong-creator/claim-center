@@ -39,9 +39,11 @@ function refreshStoreItemSummary(row) {
   const descriptionEl = summary.querySelector('[data-store-description]');
   if (!barcodeEl || !descriptionEl) return;
 
-  barcodeEl.textContent = `Barcode ${barcode || '—'}`;
+  barcodeEl.textContent = barcode || '—';
+  barcodeEl.title = barcode || '';
   if (!product) {
-    descriptionEl.textContent = article ? 'Description กำลังตรวจสอบ…' : 'Description —';
+    descriptionEl.textContent = article ? 'กำลังตรวจสอบข้อมูลสินค้า…' : '';
+    descriptionEl.removeAttribute('title');
     summary.classList.remove('ready');
     return;
   }
@@ -56,8 +58,8 @@ function setStoreItemSummaryPending(row) {
   if (!summary) return;
   const barcodeEl = summary.querySelector('[data-store-barcode]');
   const descriptionEl = summary.querySelector('[data-store-description]');
-  if (barcodeEl) barcodeEl.textContent = 'Barcode —';
-  if (descriptionEl) descriptionEl.textContent = 'Description กำลังตรวจสอบ…';
+  if (barcodeEl) barcodeEl.textContent = '—';
+  if (descriptionEl) descriptionEl.textContent = 'กำลังตรวจสอบข้อมูลสินค้า…';
   summary.classList.remove('ready');
 }
 
@@ -118,7 +120,7 @@ function enhanceStoreItemRow(row) {
   if (articleLabel && articleInput && !articleLabel.querySelector('.store-master-summary')) {
     const summary = document.createElement('span');
     summary.className = 'store-master-summary';
-    summary.innerHTML = '<span data-store-barcode>Barcode —</span><span data-store-description>Description —</span>';
+    summary.innerHTML = '<span data-store-barcode>—</span><span data-store-description></span>';
     articleLabel.insertBefore(summary, articleInput);
   }
 
@@ -254,7 +256,7 @@ function enhanceStoreSubmission() {
     const desc = itemCard.querySelector('.card-head p');
     if (eyebrow) eyebrow.textContent = 'ITEMS';
     if (heading) heading.textContent = 'รายการสินค้า';
-    if (desc) desc.textContent = '1 Article ต่อ 1 แถว · Barcode และ Description ดึงจาก Master อัตโนมัติ';
+    if (desc) desc.textContent = '1 Article ต่อ 1 แถว · ข้อมูลสินค้าดึงจาก Master อัตโนมัติ';
     installBulkRowButtons(itemCard);
   }
 
@@ -274,7 +276,7 @@ function applyCompleteReleaseUi() {
     syncBadge();
     if (!badge.dataset.completeReleaseObserver) {
       badge.dataset.completeReleaseObserver = '1';
-      new MutationObserver(syncBadge).observe(badge, { childList:true, characterData:true, subtree:true });
+      new MutationObserver(syncBadge).observe(badge, { childList:true, characterData:true,subtree:true });
     }
   }
 
