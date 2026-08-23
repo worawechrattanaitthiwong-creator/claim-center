@@ -3,6 +3,8 @@ import fs from 'node:fs';
 const runtime = fs.readFileSync('worker/evidence-runtime.js','utf8');
 const css = fs.readFileSync('site/final-ui.css','utf8');
 const storeCss = fs.readFileSync('site/store-submit.css','utf8');
+const storeLayoutCss = fs.readFileSync('site/store-layout.css','utf8');
+const storeLayout = fs.readFileSync('site/store-layout.js','utf8');
 const ui = fs.readFileSync('site/final-ui.js','utf8');
 const wrangler = fs.readFileSync('wrangler.jsonc','utf8');
 
@@ -17,18 +19,17 @@ const checks = [
   ['mobile dialogs fit viewport', css.includes('width:calc(100vw - 16px)!important') && css.includes('max-height:calc(100dvh - 16px)!important')],
   ['mobile global search remains usable', css.includes('.plus-global-search') && css.includes('.plus-search-results')],
   ['Store items use one compact spreadsheet row per Article', ui.includes('store-items-header') && storeCss.includes('grid-template-columns:0 minmax(250px,1.2fr) 110px 110px 110px')],
-  ['Store item number shares the upper meta line', storeCss.includes('top:5px!important') && storeCss.includes('font-size:12px!important') && storeCss.includes('left:96px!important')],
   ['Store row matches DC quantities', ui.includes('Delivery Qty') && ui.includes('Received Qty') && ui.includes('Claim Qty') && storeCss.includes('.store-delivery-field') && storeCss.includes('.store-received-field')],
   ['Master-only inputs stay hidden from Store', ui.includes("'.siProduct','.siBarcode','.siPrice','.siPrep','.siPack','.siSupplier'") && storeCss.includes('.store-master-hidden{display:none!important}')],
   ['Article cell shows raw barcode value and description without field-name prefix', ui.includes('data-store-barcode') && ui.includes('data-store-description') && ui.includes("barcodeEl.textContent = barcode || '—'") && !ui.includes('`Barcode ${barcode')],
-  ['Article Master line is spaced from the input and readable', storeCss.includes('gap:16px') && storeCss.includes('font-size:14px') && storeCss.includes('min-width:110px')],
-  ['Store lower controls share one compact aligned height', storeCss.includes('align-items:end!important') && storeCss.includes('height:40px!important') && storeCss.includes('min-height:40px!important')],
-  ['Article area is transparent and shadow-free', storeCss.includes('background:transparent!important') && storeCss.includes('.store-article-field input:focus{box-shadow:none!important')],
-  ['Article header remains visible after removing the number column', storeCss.includes('.store-items-header>span:nth-child(2){grid-column:2!important')],
   ['Truck and driver are visible in Claim Information', ui.includes("labelFor(coreGrid, '#storeClaimVehicle')") && ui.includes("labelFor(coreGrid, '#storeClaimDriver')") && ui.includes("labelFor(coreGrid, '#storeClaimDc')?.classList.add('store-background-hidden')") && storeCss.includes('.store-truck-field,.store-driver-field{display:block!important}')],
   ['Claim Information balances four desktop columns', storeCss.includes('.store-core-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important')],
   ['high-volume entry supports adding ten rows', ui.includes("addTen.textContent = '+ 10 แถว'") && ui.includes('for (let i = 0; i < 10; i += 1) add.click()')],
   ['Store item list is bounded and scrollable', storeCss.includes('max-height:min(62vh,680px)') && storeCss.includes('overflow:auto!important')],
+  ['Store layout assets are loaded by production runtime', runtime.includes('/store-layout.css?v=complete-layout') && runtime.includes('/store-layout.js?v=complete-layout')],
+  ['Article input is moved to each item header', storeLayout.includes("meta.append(lineNo, articleLabel)") && storeLayout.includes("articleLabel.append(articleInput, masterSummary)")],
+  ['Pallet replaces the lower Article column without changing backend field', storeLayout.includes("palletSource()") && storeLayout.includes("className = 'store-row-pallet'") && storeLayout.includes("cells[1].textContent = 'Pallet No.'")],
+  ['Additional information uses structured grid', storeLayoutCss.includes('.store-optional-system-grid') && storeLayoutCss.includes('grid-template-columns:repeat(4,minmax(0,1fr))!important')],
   ['internal numbered routes remain untouched', runtime.includes("import runtime from './v8-runtime.js'")]
 ];
 
