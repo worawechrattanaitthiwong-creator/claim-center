@@ -65,7 +65,6 @@
   display:grid!important;
   grid-template-columns:52px minmax(220px,1.15fr) 110px 110px 110px minmax(190px,1fr) minmax(220px,1.25fr) 110px 38px!important;
   column-gap:8px!important;
-  align-items:center!important;
   min-width:1210px;
 }
 .store-items-header{
@@ -74,6 +73,7 @@
   z-index:20;
   min-height:38px;
   padding:0 8px;
+  align-items:center!important;
   border-bottom:1px solid var(--line,#e2e8f0);
   background:var(--surface2,#f7f9fc);
   color:var(--muted,#718096);
@@ -88,8 +88,10 @@
 
 .store-simple-item{
   position:relative;
+  min-height:76px;
   padding:6px 8px!important;
   margin:0!important;
+  align-items:end!important;
   border:0!important;
   border-bottom:1px solid var(--line,#edf0f4)!important;
   border-radius:0!important;
@@ -104,7 +106,8 @@
   position:sticky;
   left:0;
   z-index:8;
-  height:58px;
+  height:68px;
+  align-self:end;
   display:grid;
   place-items:center;
   background:var(--surface,#fff);
@@ -115,41 +118,47 @@
 .store-simple-item .siRemove{
   grid-column:9!important;
   width:34px!important;
-  height:34px!important;
+  height:42px!important;
   min-width:34px!important;
+  align-self:end;
+  margin-bottom:0!important;
   display:grid!important;
   place-items:center!important;
   color:#a34454!important;
   font-size:17px!important;
 }
 .store-master-hidden{display:none!important}
-.store-grid-field{min-width:0!important;margin:0!important;font-size:0!important;color:transparent!important}
-.store-grid-field input,.store-grid-field select{width:100%!important;min-width:0!important;height:38px!important;margin:0!important;padding:0 9px!important;border-radius:8px!important;font-size:12px!important;color:var(--text,#142033)!important}
+.store-grid-field{min-width:0!important;margin:0!important;align-self:end!important;font-size:0!important;color:transparent!important}
+.store-grid-field input,.store-grid-field select{width:100%!important;min-width:0!important;height:42px!important;margin:0!important;padding:0 9px!important;border-radius:8px!important;font-size:12px!important;color:var(--text,#142033)!important}
 .store-article-field{
   grid-column:2!important;
   position:sticky;
   left:60px;
   z-index:8;
   padding-right:2px;
+  overflow:visible!important;
   background:var(--surface,#fff);
   box-shadow:7px 0 9px -10px rgba(15,23,42,.55);
 }
-.store-article-field input{height:40px!important;font-size:13px!important;font-weight:850!important;border-color:#aebcf0!important}
+.store-article-field input{height:42px!important;font-size:13px!important;font-weight:850!important;border-color:#aebcf0!important}
 .store-master-summary{
-  display:grid;
-  grid-template-columns:84px minmax(0,1fr);
-  gap:6px;
+  position:relative;
+  z-index:12;
+  display:flex;
   align-items:center;
-  max-width:100%;
-  min-height:16px;
-  margin:0 1px 3px;
+  gap:12px;
+  width:720px;
+  max-width:none;
+  min-height:20px;
+  margin:0 2px 6px;
   color:var(--muted,#718096)!important;
-  font-size:9px!important;
-  font-weight:650;
-  line-height:1.2;
+  font-size:11px!important;
+  line-height:1.25;
+  white-space:nowrap;
+  pointer-events:none;
 }
-.store-master-summary>[data-store-barcode]{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.store-master-summary>[data-store-description]{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.store-master-summary>[data-store-barcode]{flex:0 0 auto;min-width:72px;max-width:150px;font-size:11px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.store-master-summary>[data-store-description]{flex:0 1 540px;max-width:540px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .store-master-summary.ready>[data-store-barcode]{color:#36745c!important}
 .store-master-summary.ready>[data-store-description]{color:var(--text,#142033)!important}
 .store-delivery-field{grid-column:3!important}
@@ -159,10 +168,11 @@
 .store-remark-field{grid-column:7!important}
 .store-amount-field{
   grid-column:8!important;
-  min-height:38px!important;
-  height:38px!important;
+  min-height:42px!important;
+  height:42px!important;
   margin:0!important;
   padding:5px 8px!important;
+  align-self:end!important;
   display:flex!important;
   align-items:center!important;
   justify-content:flex-end!important;
@@ -198,10 +208,14 @@ html[data-theme="dark"] .store-article-field{background:var(--surface,#121c2a)}
   #storeItemRows{max-height:58dvh;-webkit-overflow-scrolling:touch}
   .store-items-header,.store-simple-item{min-width:1150px;grid-template-columns:48px 210px 105px 105px 105px 180px 215px 105px 36px!important}
   .store-items-header>span:nth-child(2),.store-article-field{left:56px}
-  .store-grid-field input,.store-grid-field select{font-size:16px!important;height:42px!important}
+  .store-grid-field input,.store-grid-field select{font-size:16px!important;height:44px!important}
   .store-article-field input{font-size:16px!important;height:44px!important}
-  .store-master-summary{grid-template-columns:82px minmax(0,1fr);font-size:10px!important}
-  .store-simple-item .v8-line-no{height:62px}
+  .store-master-summary{width:640px;gap:10px;font-size:11px!important;margin-bottom:6px}
+  .store-master-summary>[data-store-barcode]{font-size:11px;max-width:140px}
+  .store-master-summary>[data-store-description]{font-size:11px;max-width:470px}
+  .store-simple-item{min-height:80px}
+  .store-simple-item .v8-line-no{height:72px}
+  .store-simple-item .siRemove,.store-amount-field{height:44px!important;min-height:44px!important}
   #page-store-new .v8-form-actions{bottom:calc(82px + env(safe-area-inset-bottom));padding:8px!important}
   #page-store-new .v8-form-actions .btn{width:100%!important}
 }
