@@ -3,8 +3,9 @@ import runtime from './v8-runtime.js';
 const MAX_BYTES = 1200000;
 const CHUNK_BYTES = 64 * 1024;
 const TTL_MS = 35 * 24 * 60 * 60 * 1000;
-const FINAL_UI_STYLE = '<link rel="stylesheet" href="/final-ui.css?v=complete">';
-const FINAL_UI_SCRIPT = '<script type="module" src="/final-ui.js?v=complete"></script>';
+const FINAL_UI_STYLE = '<link rel="stylesheet" href="/final-ui.css?v=complete-2">';
+const STORE_SUBMIT_STYLE = '<link rel="stylesheet" href="/store-submit.css?v=complete-2">';
+const FINAL_UI_SCRIPT = '<script type="module" src="/final-ui.js?v=complete-2"></script>';
 
 export class EvidenceStore {
   constructor(ctx) {
@@ -115,6 +116,7 @@ async function withFinalUi(request, response) {
   let html = await response.text();
   html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>Claim Center · Store & DC Operations</title>');
   if (!html.includes('/final-ui.css')) html = html.replace('</head>', `${FINAL_UI_STYLE}</head>`);
+  if (!html.includes('/store-submit.css')) html = html.replace('</head>', `${STORE_SUBMIT_STYLE}</head>`);
   if (!html.includes('/final-ui.js')) html = html.replace('</body>', `${FINAL_UI_SCRIPT}</body>`);
 
   const headers = new Headers(response.headers);
