@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const runtime = fs.readFileSync('worker/evidence-runtime.js','utf8');
 const css = fs.readFileSync('site/final-ui.css','utf8');
+const storeCss = fs.readFileSync('site/store-submit.css','utf8');
 const ui = fs.readFileSync('site/final-ui.js','utf8');
 const wrangler = fs.readFileSync('wrangler.jsonc','utf8');
 
@@ -15,6 +16,12 @@ const checks = [
   ['mobile tables remain horizontally usable', css.includes('.table-wrap,.v8-review-table,.v8-reg-edit') && css.includes('-webkit-overflow-scrolling:touch')],
   ['mobile dialogs fit viewport', css.includes('width:calc(100vw - 16px)!important') && css.includes('max-height:calc(100dvh - 16px)!important')],
   ['mobile global search remains usable', css.includes('.plus-global-search') && css.includes('.plus-search-results')],
+  ['Store items use one spreadsheet row per Article', ui.includes('store-items-header') && storeCss.includes('grid-template-columns:52px minmax(190px,1.05fr) 110px 110px 110px')],
+  ['Store row matches DC quantities', ui.includes('Delivery Qty') && ui.includes('Received Qty') && ui.includes('Claim Qty') && storeCss.includes('.store-delivery-field') && storeCss.includes('.store-received-field')],
+  ['Master-only fields stay hidden from Store', ui.includes("'.siProduct','.siBarcode','.siPrice','.siPrep','.siPack','.siSupplier'") && storeCss.includes('.store-master-hidden{display:none!important}')],
+  ['Truck and driver stay behind Store UI', ui.includes("'#storeClaimDc','#storeClaimVehicle','#storeClaimDriver'") && storeCss.includes('.store-background-hidden{display:none!important}')],
+  ['high-volume entry supports adding ten rows', ui.includes("addTen.textContent = '+ 10 แถว'") && ui.includes('for (let i = 0; i < 10; i += 1) add.click()')],
+  ['Store item list is bounded and scrollable', storeCss.includes('max-height:min(62vh,680px)') && storeCss.includes('overflow:auto!important')],
   ['internal numbered routes remain untouched', runtime.includes("import runtime from './v8-runtime.js'")]
 ];
 
