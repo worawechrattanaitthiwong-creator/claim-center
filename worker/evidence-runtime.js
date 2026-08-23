@@ -3,9 +3,9 @@ import runtime from './v8-runtime.js';
 const MAX_BYTES = 1200000;
 const CHUNK_BYTES = 64 * 1024;
 const TTL_MS = 35 * 24 * 60 * 60 * 1000;
-const FINAL_UI_STYLE = '<link rel="stylesheet" href="/final-ui.css?v=complete-grid-3">';
-const STORE_SUBMIT_STYLE = '<link rel="stylesheet" href="/store-submit.css?v=complete-grid-3">';
-const FINAL_UI_SCRIPT = '<script type="module" src="/final-ui.js?v=complete-grid-3"></script>';
+const FINAL_UI_STYLE = '<link rel="stylesheet" href="/final-ui.css?v=complete-grid-4">';
+const STORE_SUBMIT_STYLE = '<link rel="stylesheet" href="/store-submit.css?v=complete-grid-4">';
+const FINAL_UI_SCRIPT = '<script type="module" src="/final-ui.js?v=complete-grid-4"></script>';
 
 export class EvidenceStore {
   constructor(ctx) {
