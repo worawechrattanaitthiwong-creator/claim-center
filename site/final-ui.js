@@ -34,27 +34,24 @@ function refreshStoreItemSummary(row) {
   if (!summary) return;
   const article = row.querySelector('.siArticle')?.value.trim() || '';
   const product = row.querySelector('.siProduct')?.value.trim() || '';
-  const barcode = row.querySelector('.siBarcode')?.value.trim() || '';
-  const price = row.querySelector('.siPrice')?.value.trim() || '';
-  const prep = row.querySelector('.siPrep')?.value.trim() || '';
-  const pack = row.querySelector('.siPack')?.value.trim() || '';
-  const supplier = row.querySelector('.siSupplier')?.value.trim() || '';
-
-  const productEl = summary.querySelector('[data-master-product]');
-  const metaEl = summary.querySelector('[data-master-meta]');
-  const priceEl = summary.querySelector('[data-master-price]');
   if (!product) {
-    productEl.textContent = article ? 'กำลังตรวจสอบ Article กับ Master…' : 'กรอก Article เพื่อดึงข้อมูลสินค้า';
-    metaEl.textContent = '';
-    priceEl.textContent = '—';
+    summary.textContent = article ? 'กำลังตรวจสอบ Article…' : 'รอข้อมูล Master';
     summary.classList.remove('ready');
     return;
   }
-
-  productEl.textContent = product;
-  metaEl.textContent = [barcode && `Barcode ${barcode}`, prep, pack && `Pack ${pack}`, supplier].filter(Boolean).join(' · ');
-  priceEl.textContent = price ? `฿${Number(price || 0).toLocaleString('th-TH', { minimumFractionDigits:2, maximumFractionDigits:2 })}` : '฿0.00';
+  summary.textContent = product;
+  summary.title = product;
   summary.classList.add('ready');
+}
+
+function setCellInput(row, selector, className, ariaLabel) {
+  const input = row.querySelector(selector);
+  const label = labelFor(row, selector);
+  if (!input || !label) return { input:null, label:null };
+  label.classList.add('store-grid-field', className);
+  input.setAttribute('aria-label', ariaLabel);
+  input.setAttribute('title', ariaLabel);
+  return { input, label };
 }
 
 function enhanceStoreItemRow(row) {
@@ -68,11 +65,6 @@ function enhanceStoreItemRow(row) {
   const articleInput = row.querySelector('.siArticle');
   const articleLabel = labelFor(row, '.siArticle');
   const productInput = row.querySelector('.siProduct');
-  const claimLabel = labelFor(row, '.siClaim');
-  const reasonLabel = labelFor(row, '.siReason');
-  const remarkLabel = labelFor(row, '.siRemark');
-  const deliveryLabel = labelFor(row, '.siDelivery');
-  const receivedLabel = labelFor(row, '.siReceived');
   const amount = row.querySelector('.v8-item-amount');
 
   if (articleLabel && articleInput) {
@@ -84,10 +76,12 @@ function enhanceStoreItemRow(row) {
       required.textContent = '*';
       articleLabel.insertBefore(required, articleInput);
     }
-    articleLabel.classList.add('store-article-field');
+    articleLabel.classList.add('store-grid-field', 'store-article-field');
     articleInput.required = true;
-    articleInput.placeholder = 'กรอก Article';
+    articleInput.placeholder = 'Article';
     articleInput.autocomplete = 'off';
+    articleInput.setAttribute('aria-label', 'Article');
+    articleInput.setAttribute('title', 'Article');
   }
 
   if (productInput) productInput.required = false;
@@ -96,32 +90,19 @@ function enhanceStoreItemRow(row) {
     labelFor(row, selector)?.classList.add('store-master-hidden');
   });
 
-  claimLabel?.classList.add('store-claim-field');
-  reasonLabel?.classList.add('store-reason-field');
-  remarkLabel?.classList.add('store-remark-field');
+  const delivery = setCellInput(row, '.siDelivery', 'store-delivery-field', 'Delivery Qty');
+  const received = setCellInput(row, '.siReceived', 'store-received-field', 'Received Qty');
+  const claim = setCellInput(row, '.siClaim', 'store-claim-field', 'Claim Qty');
+  setCellInput(row, '.siReason', 'store-reason-field', 'Claims Reason');
+  setCellInput(row, '.siRemark', 'store-remark-field', 'Remark');
+  [delivery.input, received.input, claim.input].filter(Boolean).forEach(input => input.setAttribute('inputmode', 'decimal'));
   amount?.classList.add('store-amount-field');
 
-  if (!row.querySelector('.store-master-summary')) {
-    const summary = document.createElement('div');
+  if (articleLabel && !articleLabel.querySelector('.store-master-summary')) {
+    const summary = document.createElement('span');
     summary.className = 'store-master-summary';
-    summary.innerHTML = `
-      <div class="store-master-main">
-        <small>ข้อมูลจาก Master</small>
-        <b data-master-product>กรอก Article เพื่อดึงข้อมูลสินค้า</b>
-        <span data-master-meta></span>
-      </div>
-      <div class="store-master-price"><small>ราคา / หน่วย</small><strong data-master-price>—</strong></div>`;
-    articleLabel?.insertAdjacentElement('afterend', summary);
-  }
-
-  if ((deliveryLabel || receivedLabel) && !row.querySelector('.store-item-more')) {
-    const details = document.createElement('details');
-    details.className = 'store-item-more';
-    details.innerHTML = '<summary>ข้อมูลจำนวนรับ-ส่งเพิ่มเติม</summary><div class="store-item-more-grid"></div>';
-    const moreGrid = details.querySelector('.store-item-more-grid');
-    if (deliveryLabel) moreGrid.append(deliveryLabel);
-    if (receivedLabel) moreGrid.append(receivedLabel);
-    grid.append(details);
+    summary.textContent = 'รอข้อมูล Master';
+    articleLabel.append(summary);
   }
 
   if (articleInput) {
@@ -141,12 +122,45 @@ function enhanceStoreItemRow(row) {
       if (event.key === 'Enter') {
         event.preventDefault();
         articleInput.blur();
+        window.setTimeout(() => claim.input?.focus(), 120);
       }
     });
   }
 
-  row.querySelector('.siClaim')?.addEventListener('input', () => refreshStoreItemSummary(row));
   refreshStoreItemSummary(row);
+}
+
+function installItemsHeader(host) {
+  if (!host || host.querySelector('.store-items-header')) return;
+  const header = document.createElement('div');
+  header.className = 'store-items-header';
+  header.innerHTML = '<span>#</span><span>Article</span><span>Delivery Qty</span><span>Received Qty</span><span>Claim Qty</span><span>Claims Reason</span><span>Remark</span><span>Amount</span><span></span>';
+  host.prepend(header);
+}
+
+function installBulkRowButtons(itemCard) {
+  const add = itemCard?.querySelector('#addStoreItem');
+  if (!add || itemCard.querySelector('#storeAddTen')) return;
+  add.textContent = '+ เพิ่มแถว';
+  const addTen = document.createElement('button');
+  addTen.id = 'storeAddTen';
+  addTen.type = 'button';
+  addTen.className = 'btn ghost small';
+  addTen.textContent = '+ 10 แถว';
+  const actions = document.createElement('div');
+  actions.className = 'store-add-actions';
+  add.parentNode.insertBefore(actions, add);
+  actions.append(add, addTen);
+  addTen.onclick = () => {
+    for (let i = 0; i < 10; i += 1) add.click();
+    window.setTimeout(() => {
+      const rows = [...document.querySelectorAll('#storeItemRows .v8-item-row')];
+      rows.at(-10)?.querySelector('.siArticle')?.focus();
+    }, 80);
+  };
+  const syncVisibility = () => { addTen.hidden = add.hidden; actions.hidden = add.hidden; };
+  syncVisibility();
+  new MutationObserver(syncVisibility).observe(add, { attributes:true, attributeFilter:['hidden'] });
 }
 
 function enhanceStoreSubmission() {
@@ -159,7 +173,7 @@ function enhanceStoreSubmission() {
     const title = intro.querySelector('h1');
     const desc = intro.querySelector('p');
     if (title) title.textContent = 'แจ้งเคลม';
-    if (desc) desc.textContent = 'กรอกข้อมูลที่จำเป็นสำหรับ DC ตรวจสอบและนำเข้าระบบ';
+    if (desc) desc.textContent = 'กรอกข้อมูลเคลมเพื่อส่งให้ DC ตรวจสอบ';
   }
 
   const transport = form.querySelector('.transport-hero');
@@ -168,7 +182,7 @@ function enhanceStoreSubmission() {
     const label = transport.querySelector('label');
     const input = transport.querySelector('#storeClaimTransport');
     setLeadingLabelText(label, 'Transport No. ');
-    if (input) input.placeholder = 'กรอก Transport No.';
+    if (input) input.placeholder = 'Transport No.';
     const info = transport.querySelector(':scope > div');
     if (info) info.hidden = true;
   }
@@ -184,30 +198,35 @@ function enhanceStoreSubmission() {
     if (eyebrow) eyebrow.textContent = 'CLAIM INFORMATION';
     if (heading) heading.textContent = 'ข้อมูลเคลม';
 
-    const optionalSelectors = ['#storeClaimDc','#storeClaimVehicle','#storeClaimDriver','#storeClaimDn','#storeClaimRoute','#storeClaimPallet','#storeClaimBasket','#storeClaimDetails'];
+    ['#storeClaimDc','#storeClaimVehicle','#storeClaimDriver'].forEach(selector => {
+      labelFor(coreGrid, selector)?.classList.add('store-background-hidden');
+    });
+
+    const optionalSelectors = ['#storeClaimDn','#storeClaimRoute','#storeClaimPallet','#storeClaimBasket','#storeClaimDetails'];
     const optionalLabels = optionalSelectors.map(selector => labelFor(coreGrid, selector)).filter(Boolean);
     if (optionalLabels.length) {
       const details = document.createElement('details');
       details.className = 'store-optional-fields';
-      details.innerHTML = '<summary>ข้อมูลเพิ่มเติม (ไม่บังคับ)</summary><div class="store-optional-grid"></div>';
+      details.innerHTML = '<summary>ข้อมูลเพิ่มเติม</summary><div class="store-optional-grid"></div>';
       const optionalGrid = details.querySelector('.store-optional-grid');
       optionalLabels.forEach(label => optionalGrid.append(label));
       coreCard.append(details);
     }
   }
 
-  const itemCard = document.querySelector('#storeItemRows')?.closest('article.card');
+  const rowsHost = document.querySelector('#storeItemRows');
+  const itemCard = rowsHost?.closest('article.card');
   if (itemCard) {
     const eyebrow = itemCard.querySelector('.card-head .eyebrow');
     const heading = itemCard.querySelector('.card-head h3');
     const desc = itemCard.querySelector('.card-head p');
-    const add = itemCard.querySelector('#addStoreItem');
     if (eyebrow) eyebrow.textContent = 'ITEMS';
     if (heading) heading.textContent = 'รายการสินค้า';
-    if (desc) desc.textContent = 'กรอก Article และจำนวนเคลม ระบบจะดึงชื่อสินค้า Barcode และราคาจาก Master อัตโนมัติ';
-    if (add) add.textContent = '+ เพิ่มสินค้า';
+    if (desc) desc.textContent = '1 Article ต่อ 1 แถว · ข้อมูลสินค้าและราคาดึงจาก Master อัตโนมัติ';
+    installBulkRowButtons(itemCard);
   }
 
+  installItemsHeader(rowsHost);
   document.querySelectorAll('#storeItemRows .v8-item-row').forEach(enhanceStoreItemRow);
 }
 
