@@ -6,8 +6,10 @@ const TTL_MS = 35 * 24 * 60 * 60 * 1000;
 const FINAL_UI_STYLE = '<link rel="stylesheet" href="/final-ui.css?v=complete-grid-5">';
 const STORE_SUBMIT_STYLE = '<link rel="stylesheet" href="/store-submit.css?v=complete-grid-5">';
 const STORE_LAYOUT_STYLE = '<link rel="stylesheet" href="/store-layout.css?v=complete-layout-2">';
+const STORE_IDENTITY_STYLE = '<link rel="stylesheet" href="/store-identity.css?v=complete-identity">';
 const FINAL_UI_SCRIPT = '<script type="module" src="/final-ui.js?v=complete-grid-5"></script>';
 const STORE_LAYOUT_SCRIPT = '<script type="module" src="/store-layout.js?v=complete-layout"></script>';
+const STORE_IDENTITY_SCRIPT = '<script type="module" src="/store-identity.js?v=complete-identity"></script>';
 
 export class EvidenceStore {
   constructor(ctx) {
@@ -120,8 +122,10 @@ async function withFinalUi(request, response) {
   if (!html.includes('/final-ui.css')) html = html.replace('</head>', `${FINAL_UI_STYLE}</head>`);
   if (!html.includes('/store-submit.css')) html = html.replace('</head>', `${STORE_SUBMIT_STYLE}</head>`);
   if (!html.includes('/store-layout.css')) html = html.replace('</head>', `${STORE_LAYOUT_STYLE}</head>`);
+  if (!html.includes('/store-identity.css')) html = html.replace('</head>', `${STORE_IDENTITY_STYLE}</head>`);
   if (!html.includes('/final-ui.js')) html = html.replace('</body>', `${FINAL_UI_SCRIPT}</body>`);
   if (!html.includes('/store-layout.js')) html = html.replace('</body>', `${STORE_LAYOUT_SCRIPT}</body>`);
+  if (!html.includes('/store-identity.js')) html = html.replace('</body>', `${STORE_IDENTITY_SCRIPT}</body>`);
 
   const headers = new Headers(response.headers);
   headers.delete('content-length');
