@@ -33,15 +33,32 @@ function refreshStoreItemSummary(row) {
   const summary = row.querySelector('.store-master-summary');
   if (!summary) return;
   const article = row.querySelector('.siArticle')?.value.trim() || '';
+  const barcode = row.querySelector('.siBarcode')?.value.trim() || '';
   const product = row.querySelector('.siProduct')?.value.trim() || '';
+  const barcodeEl = summary.querySelector('[data-store-barcode]');
+  const descriptionEl = summary.querySelector('[data-store-description]');
+  if (!barcodeEl || !descriptionEl) return;
+
+  barcodeEl.textContent = `Barcode ${barcode || '—'}`;
   if (!product) {
-    summary.textContent = article ? 'กำลังตรวจสอบ Article…' : 'รอข้อมูล Master';
+    descriptionEl.textContent = article ? 'Description กำลังตรวจสอบ…' : 'Description —';
     summary.classList.remove('ready');
     return;
   }
-  summary.textContent = product;
-  summary.title = product;
+
+  descriptionEl.textContent = product;
+  descriptionEl.title = product;
   summary.classList.add('ready');
+}
+
+function setStoreItemSummaryPending(row) {
+  const summary = row.querySelector('.store-master-summary');
+  if (!summary) return;
+  const barcodeEl = summary.querySelector('[data-store-barcode]');
+  const descriptionEl = summary.querySelector('[data-store-description]');
+  if (barcodeEl) barcodeEl.textContent = 'Barcode —';
+  if (descriptionEl) descriptionEl.textContent = 'Description กำลังตรวจสอบ…';
+  summary.classList.remove('ready');
 }
 
 function setCellInput(row, selector, className, ariaLabel) {
@@ -98,26 +115,29 @@ function enhanceStoreItemRow(row) {
   [delivery.input, received.input, claim.input].filter(Boolean).forEach(input => input.setAttribute('inputmode', 'decimal'));
   amount?.classList.add('store-amount-field');
 
-  if (articleLabel && !articleLabel.querySelector('.store-master-summary')) {
+  if (articleLabel && articleInput && !articleLabel.querySelector('.store-master-summary')) {
     const summary = document.createElement('span');
     summary.className = 'store-master-summary';
-    summary.textContent = 'รอข้อมูล Master';
-    articleLabel.append(summary);
+    summary.innerHTML = '<span data-store-barcode>Barcode —</span><span data-store-description>Description —</span>';
+    articleLabel.insertBefore(summary, articleInput);
   }
 
   if (articleInput) {
     let timer = 0;
     articleInput.addEventListener('input', () => {
-      row.querySelector('.store-master-summary')?.classList.remove('ready');
       clearTimeout(timer);
       if (articleInput.value.trim().length >= 2) {
+        setStoreItemSummaryPending(row);
         timer = window.setTimeout(() => {
           articleInput.dispatchEvent(new Event('change', { bubbles:true }));
           window.setTimeout(() => refreshStoreItemSummary(row), 450);
         }, 420);
       } else refreshStoreItemSummary(row);
     });
-    articleInput.addEventListener('change', () => window.setTimeout(() => refreshStoreItemSummary(row), 450));
+    articleInput.addEventListener('change', () => {
+      setStoreItemSummaryPending(row);
+      window.setTimeout(() => refreshStoreItemSummary(row), 450);
+    });
     articleInput.addEventListener('keydown', event => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -198,9 +218,21 @@ function enhanceStoreSubmission() {
     if (eyebrow) eyebrow.textContent = 'CLAIM INFORMATION';
     if (heading) heading.textContent = 'ข้อมูลเคลม';
 
-    ['#storeClaimDc','#storeClaimVehicle','#storeClaimDriver'].forEach(selector => {
-      labelFor(coreGrid, selector)?.classList.add('store-background-hidden');
-    });
+    labelFor(coreGrid, '#storeClaimDc')?.classList.add('store-background-hidden');
+
+    const truckLabel = labelFor(coreGrid, '#storeClaimVehicle');
+    const driverLabel = labelFor(coreGrid, '#storeClaimDriver');
+    const receivedLabel = labelFor(coreGrid, '#storeClaimReceivedDate');
+    if (truckLabel) {
+      setLeadingLabelText(truckLabel, 'Truck No. ');
+      truckLabel.classList.add('store-truck-field');
+      if (receivedLabel) coreGrid.insertBefore(truckLabel, receivedLabel);
+    }
+    if (driverLabel) {
+      setLeadingLabelText(driverLabel, 'Driver name ');
+      driverLabel.classList.add('store-driver-field');
+      if (receivedLabel) coreGrid.insertBefore(driverLabel, receivedLabel);
+    }
 
     const optionalSelectors = ['#storeClaimDn','#storeClaimRoute','#storeClaimPallet','#storeClaimBasket','#storeClaimDetails'];
     const optionalLabels = optionalSelectors.map(selector => labelFor(coreGrid, selector)).filter(Boolean);
@@ -222,7 +254,7 @@ function enhanceStoreSubmission() {
     const desc = itemCard.querySelector('.card-head p');
     if (eyebrow) eyebrow.textContent = 'ITEMS';
     if (heading) heading.textContent = 'รายการสินค้า';
-    if (desc) desc.textContent = '1 Article ต่อ 1 แถว · ข้อมูลสินค้าและราคาดึงจาก Master อัตโนมัติ';
+    if (desc) desc.textContent = '1 Article ต่อ 1 แถว · Barcode และ Description ดึงจาก Master อัตโนมัติ';
     installBulkRowButtons(itemCard);
   }
 
